@@ -3,6 +3,10 @@ import { prisma } from "@/lib/prisma";
 import PageHeader from "@/components/PageHeader";
 import { emailStepLabel } from "@/lib/constants";
 
+// Without this, Next prerenders the page once at build time (no dynamic APIs are used here)
+// and serves that stale snapshot to every visitor instead of querying the database per request.
+export const dynamic = "force-dynamic";
+
 export default async function AnalyticsPage() {
   const sentRecords = await prisma.emailStepRecord.findMany({
     where: { sentAt: { not: null } },

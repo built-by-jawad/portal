@@ -4,6 +4,10 @@ import PageHeader from "@/components/PageHeader";
 import StatusBadge from "@/components/StatusBadge";
 import { emailStepLabel } from "@/lib/constants";
 
+// Without this, Next prerenders the page once at build time (no dynamic APIs are used here)
+// and serves that stale snapshot to every visitor instead of querying the database per request.
+export const dynamic = "force-dynamic";
+
 export default async function DashboardPage() {
   const [totalLeads, activeLeads, booked, dead, sentThisWeek, unsentSteps] =
     await Promise.all([
