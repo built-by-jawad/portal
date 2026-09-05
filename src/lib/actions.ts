@@ -220,7 +220,13 @@ export async function sendEmailNow(leadId: string, recordId: string) {
     subject = `Re: ${base}`;
   }
 
-  const trackingPixelUrl = `${process.env.APP_URL}/api/track/${record.id}`;
+  // Vercel's deployment protection blocks anonymous requests (like Gmail's image proxy fetching
+  // the tracking pixel), so the bypass secret is appended here — see VERCEL_AUTOMATION_BYPASS_SECRET
+  // in Project Settings → Deployment Protection (auto-provided as a system env var).
+  const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+  const trackingPixelUrl = `${process.env.APP_URL}/api/track/${record.id}${
+    bypass ? `?x-vercel-protection-bypass=${bypass}` : ""
+  }`;
 
   const { messageId, threadId } = await sendGmail({
     to: lead.email,
