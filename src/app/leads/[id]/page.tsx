@@ -34,7 +34,7 @@ export default async function LeadDetailPage({
 
       <PageHeader
         title={lead.businessName}
-        description={[lead.city, lead.state].filter(Boolean).join(", ") || undefined}
+        description={lead.address ?? undefined}
         action={
           <div className="flex flex-wrap items-center gap-2">
             <StatusSelect leadId={lead.id} status={lead.status} />

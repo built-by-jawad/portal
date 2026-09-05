@@ -91,7 +91,7 @@ export default async function DashboardPage() {
                       </p>
                       <p className="truncate text-xs text-slate">
                         {emailStepLabel(step.order)}
-                        {step.lead.city ? ` · ${step.lead.city}` : ""}
+                        {step.lead.address ? ` · ${step.lead.address}` : ""}
                       </p>
                     </div>
                     <StatusBadge status={step.lead.status} />

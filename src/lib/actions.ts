@@ -11,9 +11,40 @@ function str(formData: FormData, key: string): string | null {
   return trimmed.length ? trimmed : null;
 }
 
+export type DraftEmail = {
+  subject: string;
+  body: string;
+  scheduledDate: string;
+  scheduledTime: string;
+  scheduledTimezone: string;
+};
+
+function parseDraftEmails(formData: FormData): DraftEmail[] {
+  const raw = formData.get("emailsJson");
+  if (typeof raw !== "string" || !raw.trim()) return [{ subject: "", body: "", scheduledDate: "", scheduledTime: "", scheduledTimezone: "" }];
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      return [{ subject: "", body: "", scheduledDate: "", scheduledTime: "", scheduledTimezone: "" }];
+    }
+    return parsed.map((e) => ({
+      subject: typeof e?.subject === "string" ? e.subject : "",
+      body: typeof e?.body === "string" ? e.body : "",
+      scheduledDate: typeof e?.scheduledDate === "string" ? e.scheduledDate : "",
+      scheduledTime: typeof e?.scheduledTime === "string" ? e.scheduledTime : "",
+      scheduledTimezone: typeof e?.scheduledTimezone === "string" ? e.scheduledTimezone : "",
+    }));
+  } catch {
+    return [{ subject: "", body: "", scheduledDate: "", scheduledTime: "", scheduledTimezone: "" }];
+  }
+}
+
 export async function createLead(formData: FormData) {
   const businessName = str(formData, "businessName");
   if (!businessName) throw new Error("Business name is required");
+
+  const draftEmails = parseDraftEmails(formData);
 
   const lead = await prisma.lead.create({
     data: {
@@ -22,14 +53,19 @@ export async function createLead(formData: FormData) {
       email: str(formData, "email"),
       phone: str(formData, "phone"),
       website: str(formData, "website"),
-      city: str(formData, "city"),
-      state: str(formData, "state"),
+      address: str(formData, "address"),
       trade: str(formData, "trade") ?? "OTHER",
-      source: str(formData, "source"),
       leakNotes: str(formData, "leakNotes"),
       notes: str(formData, "notes"),
       emails: {
-        create: { order: 0, subject: "", body: "" },
+        create: draftEmails.map((e, order) => ({
+          order,
+          subject: e.subject,
+          body: e.body,
+          scheduledDate: e.scheduledDate || null,
+          scheduledTime: e.scheduledTime || null,
+          scheduledTimezone: e.scheduledTimezone || null,
+        })),
       },
     },
   });
@@ -47,10 +83,8 @@ export async function updateLead(id: string, formData: FormData) {
       email: str(formData, "email"),
       phone: str(formData, "phone"),
       website: str(formData, "website"),
-      city: str(formData, "city"),
-      state: str(formData, "state"),
+      address: str(formData, "address"),
       trade: str(formData, "trade") ?? "OTHER",
-      source: str(formData, "source"),
       leakNotes: str(formData, "leakNotes"),
       notes: str(formData, "notes"),
     },
@@ -94,10 +128,13 @@ export async function removeEmailStep(leadId: string, recordId: string) {
 export async function updateEmailStep(recordId: string, formData: FormData) {
   const subject = str(formData, "subject") ?? "";
   const body = str(formData, "body") ?? "";
+  const scheduledDate = str(formData, "scheduledDate");
+  const scheduledTime = str(formData, "scheduledTime");
+  const scheduledTimezone = str(formData, "scheduledTimezone");
 
   const record = await prisma.emailStepRecord.update({
     where: { id: recordId },
-    data: { subject, body },
+    data: { subject, body, scheduledDate, scheduledTime, scheduledTimezone },
   });
 
   revalidatePath(`/leads/${record.leadId}`);

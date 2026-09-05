@@ -75,7 +75,7 @@ export default async function LeadsPage({
                     <p className="truncate font-semibold text-ink">{lead.businessName}</p>
                     <p className="truncate text-xs text-slate">
                       {TRADE_LABELS[(lead.trade as Trade) ?? "OTHER"]}
-                      {lead.city ? ` · ${lead.city}${lead.state ? `, ${lead.state}` : ""}` : ""}
+                      {lead.address ? ` · ${lead.address}` : ""}
                       {lead.contactName ? ` · ${lead.contactName}` : ""}
                     </p>
                   </div>

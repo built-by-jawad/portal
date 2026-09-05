@@ -20,10 +20,8 @@ model Lead {
   email        String?
   phone        String?
   website      String?
-  city         String?
-  state        String?
+  address      String?
   trade        String   @default("OTHER")
-  source       String?
   status       String   @default("NEW")
   leakNotes    String?
   notes        String?
@@ -34,17 +32,22 @@ model Lead {
 }
 
 // One row per email in a lead's sequence (order 0 = initial email, 1+ = follow-ups).
-// Follow-ups are added one at a time from the lead detail page — there's no fixed cap.
+// Follow-ups can be added/removed freely, from the Add Lead form or later from the lead detail page — there's no fixed cap.
+// scheduledDate/Time/Timezone are the planned send time, entered by hand (not computed) — kept as plain strings
+// rather than a converted UTC instant so what's displayed is always exactly what was typed.
 model EmailStepRecord {
-  id        String    @id @default(cuid())
-  leadId    String
-  lead      Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  order     Int
-  subject   String
-  body      String
-  sentAt    DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id                String    @id @default(cuid())
+  leadId            String
+  lead              Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  order             Int
+  subject           String
+  body              String
+  scheduledDate     String?
+  scheduledTime     String?
+  scheduledTimezone String?
+  sentAt            DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   @@unique([leadId, order])
 }

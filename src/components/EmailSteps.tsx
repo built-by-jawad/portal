@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { emailStepLabel } from "@/lib/constants";
+import { emailStepLabel, TIMEZONES } from "@/lib/constants";
 import {
   markEmailSent,
   unmarkEmailSent,
@@ -15,6 +15,9 @@ type StepRecord = {
   order: number;
   subject: string;
   body: string;
+  scheduledDate: string | null;
+  scheduledTime: string | null;
+  scheduledTimezone: string | null;
   sentAt: Date | null;
 };
 
@@ -72,6 +75,12 @@ export default function EmailSteps({
                 </p>
               ) : (
                 <p className="text-xs font-medium text-slate">Not sent yet</p>
+              )}
+              {(current.scheduledDate || current.scheduledTime) && (
+                <p className="mt-0.5 text-xs text-slate">
+                  Scheduled {current.scheduledDate || "—"} {current.scheduledTime || ""}
+                  {current.scheduledTimezone ? ` (${current.scheduledTimezone})` : ""}
+                </p>
               )}
             </div>
             <div className="flex flex-wrap gap-2">
@@ -134,6 +143,41 @@ export default function EmailSteps({
                 defaultValue={current.body}
                 className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
               />
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-ink">Send date</label>
+                <input
+                  type="date"
+                  name="scheduledDate"
+                  defaultValue={current.scheduledDate ?? ""}
+                  className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-ink">Send time</label>
+                <input
+                  type="time"
+                  name="scheduledTime"
+                  defaultValue={current.scheduledTime ?? ""}
+                  className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-ink">Timezone</label>
+                <select
+                  name="scheduledTimezone"
+                  defaultValue={current.scheduledTimezone ?? ""}
+                  className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
+                >
+                  <option value="">Select...</option>
+                  {TIMEZONES.map((tz) => (
+                    <option key={tz.value} value={tz.value}>
+                      {tz.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
             <button
               type="submit"
