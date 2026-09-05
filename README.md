@@ -26,15 +26,17 @@ Local dev and production currently point at the **same Supabase database** — t
 
 - **Dashboard** (`/`) — lead counts, emails sent this 7 days, and a queue of the next unsent email steps.
 - **Leads** (`/leads`) — full list, filterable by status.
-- **Add Lead** (`/leads/new`) — business info (name, contact, email, phone, website, trade, full address) plus optional leak notes/internal notes, **and the full email sequence right there**: an Initial Email plus as many Follow-up tabs as you add via "+ Add follow-up" before you've even saved the lead, each with its own subject, body, and a send date/time/timezone.
+- **Add Lead** (`/leads/new`) — business info (name, contact, email, phone, website, trade, full address) plus optional leak notes/internal notes, **and the full email sequence right there**: an Initial Email plus as many Follow-up tabs as you add via "+ Add follow-up" before you've even saved the lead, each with its own body, a send date/time/timezone, and an "Include a subject line" checkbox (checked by default on the Initial Email, unchecked by default on follow-ups — unchecked means it replies in the same thread instead of starting a new one).
 - **Lead detail** (`/leads/[id]`) — same tabbed email editor, still add/remove follow-ups freely. "Mark as sent" stamps the actual send time and, for the first email sent, advances the lead's status to Contacted. "Remove" is follow-ups only — the initial email can't be deleted, just edited.
 
 There is no templates page — every email is written directly on the lead, from scratch.
 
+Timezone doesn't need to be picked by hand: leaving it on "Auto-detect from address" fills it in server-side from the lead's address (via a US state → timezone lookup in `src/lib/timezone.ts`) whenever a lead is created or a follow-up is added. It's a best-effort guess from free-text address, not a geocoding API — always fine to override manually if it's wrong or the address is ambiguous/non-US.
+
 ## Data model (`prisma/schema.prisma`)
 
 - `Lead` — one business being pursued: contact info, trade, full `address` (no separate city/state/source fields), status, leak notes.
-- `EmailStepRecord` — one row per email in a lead's sequence, ordered by `order` (0 = Initial Email, 1+ = Follow-up N). Holds the drafted subject/body, the planned `scheduledDate`/`scheduledTime`/`scheduledTimezone` (entered by hand, not converted — what you type is what's shown), and `sentAt` (set once you actually click "Mark as sent"). Follow-ups are added and removed freely — there's no fixed count.
+- `EmailStepRecord` — one row per email in a lead's sequence, ordered by `order` (0 = Initial Email, 1+ = Follow-up N). Holds `hasSubject` (whether this email shows a subject line vs. replying in-thread) alongside subject/body, the planned `scheduledDate`/`scheduledTime` (entered by hand) and `scheduledTimezone` (hand-entered or auto-guessed from the lead's address — see above), and `sentAt` (set once you actually click "Mark as sent"). Follow-ups are added and removed freely — there's no fixed count.
 
 `status` and `trade` are plain strings (not Postgres enums) validated against the lists in `src/lib/constants.ts` — this schema started on SQLite (no enum support) and there was no reason to churn it when moving to Postgres.
 
