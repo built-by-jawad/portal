@@ -1,0 +1,48 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// LeadStatus (string): NEW | RESEARCHED | CONTACTED | REPLIED | BOOKED | DEAD
+// Trade (string): PLUMBING | ROOFING | REMODELING | GENERAL_CONTRACTING | OTHER
+// SQLite has no native enum support in Prisma, so these are plain strings validated in app code (see src/lib/constants.ts).
+
+model Lead {
+  id           String   @id @default(cuid())
+  businessName String
+  contactName  String?
+  email        String?
+  phone        String?
+  website      String?
+  city         String?
+  state        String?
+  trade        String   @default("OTHER")
+  source       String?
+  status       String   @default("NEW")
+  leakNotes    String?
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  emails EmailStepRecord[]
+}
+
+// One row per email in a lead's sequence (order 0 = initial email, 1+ = follow-ups).
+// Follow-ups are added one at a time from the lead detail page — there's no fixed cap.
+model EmailStepRecord {
+  id        String    @id @default(cuid())
+  leadId    String
+  lead      Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  order     Int
+  subject   String
+  body      String
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([leadId, order])
+}
