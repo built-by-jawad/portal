@@ -37,6 +37,8 @@ model Lead {
 // server-side from the lead's address (see src/lib/timezone.ts) whenever left blank, but can be overridden by hand.
 // All three are kept as plain strings rather than a converted UTC instant so what's displayed is always exactly what was set.
 // hasSubject lets a follow-up skip the subject line entirely (e.g. to reply in the same email thread).
+// gmailThreadId/gmailMessageId are set once actually sent via Gmail, so later emails in the same lead's
+// sequence can be threaded as a reply. openedAt/openCount come from the tracking pixel embedded in the sent body.
 model EmailStepRecord {
   id                String    @id @default(cuid())
   leadId            String
@@ -49,8 +51,25 @@ model EmailStepRecord {
   scheduledTime     String?
   scheduledTimezone String?
   sentAt            DateTime?
+  gmailThreadId     String?
+  gmailMessageId    String?
+  openedAt          DateTime?
+  openCount         Int       @default(0)
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
   @@unique([leadId, order])
+}
+
+// Singleton row (id is always "singleton") holding the connected Gmail account's OAuth tokens.
+// This is a single-user internal tool, so one row is enough — no per-user auth needed.
+model GoogleAuth {
+  id           String    @id @default("singleton")
+  email        String?
+  accessToken  String?
+  refreshToken String
+  expiryDate   DateTime?
+  scope        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }

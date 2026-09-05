@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { guessTimezoneFromAddress } from "@/lib/timezone";
+import { disconnectGoogle, sendGmail } from "@/lib/google";
 
 function str(formData: FormData, key: string): string | null {
   const v = formData.get(key);
@@ -191,4 +192,65 @@ export async function unmarkEmailSent(leadId: string, recordId: string) {
   revalidatePath(`/leads/${leadId}`);
   revalidatePath("/leads");
   revalidatePath("/");
+}
+
+function stripReplyPrefix(subject: string) {
+  return subject.replace(/^(re:\s*)+/i, "").trim();
+}
+
+export async function sendEmailNow(leadId: string, recordId: string) {
+  const [lead, records] = await Promise.all([
+    prisma.lead.findUniqueOrThrow({ where: { id: leadId } }),
+    prisma.emailStepRecord.findMany({ where: { leadId }, orderBy: { order: "asc" } }),
+  ]);
+
+  if (!lead.email) throw new Error("This lead has no email address to send to.");
+
+  const record = records.find((r) => r.id === recordId);
+  if (!record) throw new Error("Email not found");
+
+  const previous = records.filter((r) => r.order < record.order).at(-1);
+
+  let subject = record.subject;
+  if (!record.hasSubject) {
+    const lastWithSubject = [...records]
+      .filter((r) => r.order < record.order && r.hasSubject)
+      .at(-1);
+    const base = stripReplyPrefix(lastWithSubject?.subject || lead.businessName);
+    subject = `Re: ${base}`;
+  }
+
+  const trackingPixelUrl = `${process.env.APP_URL}/api/track/${record.id}`;
+
+  const { messageId, threadId } = await sendGmail({
+    to: lead.email,
+    subject,
+    bodyText: record.body,
+    trackingPixelUrl,
+    threadId: previous?.gmailThreadId ?? undefined,
+    inReplyToMessageId: previous?.gmailMessageId ?? undefined,
+  });
+
+  await prisma.emailStepRecord.update({
+    where: { id: recordId },
+    data: {
+      sentAt: new Date(),
+      gmailMessageId: messageId,
+      gmailThreadId: threadId,
+    },
+  });
+
+  if (lead.status === "NEW" || lead.status === "RESEARCHED") {
+    await prisma.lead.update({ where: { id: leadId }, data: { status: "CONTACTED" } });
+  }
+
+  revalidatePath(`/leads/${leadId}`);
+  revalidatePath("/leads");
+  revalidatePath("/");
+  revalidatePath("/analytics");
+}
+
+export async function disconnectGoogleAction() {
+  await disconnectGoogle();
+  revalidatePath("/settings");
 }

@@ -8,6 +8,8 @@ const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: "◧" },
   { href: "/leads", label: "Leads", icon: "☰" },
   { href: "/leads/new", label: "Add Lead", icon: "+" },
+  { href: "/analytics", label: "Analytics", icon: "▲" },
+  { href: "/settings", label: "Settings", icon: "⚙" },
 ];
 
 export default function Sidebar() {
