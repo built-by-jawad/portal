@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { emailStepLabel, TIMEZONES } from "@/lib/constants";
 import {
   markEmailSent,
@@ -13,6 +13,7 @@ import {
 type StepRecord = {
   id: string;
   order: number;
+  hasSubject: boolean;
   subject: string;
   body: string;
   scheduledDate: string | null;
@@ -33,6 +34,11 @@ export default function EmailSteps({
   const [isPending, startTransition] = useTransition();
 
   const current = sorted.find((r) => r.id === activeId) ?? sorted[0];
+  const [subjectEnabled, setSubjectEnabled] = useState(current?.hasSubject ?? true);
+
+  useEffect(() => {
+    setSubjectEnabled(current?.hasSubject ?? true);
+  }, [current?.id, current?.hasSubject]);
 
   return (
     <div className="rounded-xl border border-mist/30 bg-white/60 shadow-sm">
@@ -127,14 +133,31 @@ export default function EmailSteps({
             action={(formData) => updateEmailStep(current.id, formData)}
             className="space-y-3"
           >
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-ink">Subject</label>
+            <label className="flex items-center gap-2 text-sm font-medium text-ink">
               <input
-                name="subject"
-                defaultValue={current.subject}
-                className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
+                type="checkbox"
+                name="hasSubject"
+                checked={subjectEnabled}
+                onChange={(e) => setSubjectEnabled(e.target.checked)}
+                className="h-4 w-4 rounded border-mist/40 accent-green"
               />
-            </div>
+              Include a subject line
+            </label>
+            {!subjectEnabled && (
+              <p className="text-xs text-slate">
+                This email will reply in the same thread as the previous one, with no new subject.
+              </p>
+            )}
+            {subjectEnabled && (
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-ink">Subject</label>
+                <input
+                  name="subject"
+                  defaultValue={current.subject}
+                  className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
+                />
+              </div>
+            )}
             <div>
               <label className="mb-1.5 block text-sm font-medium text-ink">Body</label>
               <textarea
@@ -170,7 +193,7 @@ export default function EmailSteps({
                   defaultValue={current.scheduledTimezone ?? ""}
                   className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
                 >
-                  <option value="">Select...</option>
+                  <option value="">Auto-detect from address</option>
                   {TIMEZONES.map((tz) => (
                     <option key={tz.value} value={tz.value}>
                       {tz.label}

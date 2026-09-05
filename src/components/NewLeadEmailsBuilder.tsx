@@ -4,6 +4,7 @@ import { useState } from "react";
 import { emailStepLabel, TIMEZONES } from "@/lib/constants";
 
 type DraftEmail = {
+  hasSubject: boolean;
   subject: string;
   body: string;
   scheduledDate: string;
@@ -11,7 +12,8 @@ type DraftEmail = {
   scheduledTimezone: string;
 };
 
-const EMPTY_EMAIL: DraftEmail = {
+const INITIAL_EMAIL: DraftEmail = {
+  hasSubject: true,
   subject: "",
   body: "",
   scheduledDate: "",
@@ -19,8 +21,13 @@ const EMPTY_EMAIL: DraftEmail = {
   scheduledTimezone: "",
 };
 
+const FOLLOWUP_EMAIL: DraftEmail = {
+  ...INITIAL_EMAIL,
+  hasSubject: false,
+};
+
 export default function NewLeadEmailsBuilder() {
-  const [emails, setEmails] = useState<DraftEmail[]>([{ ...EMPTY_EMAIL }]);
+  const [emails, setEmails] = useState<DraftEmail[]>([{ ...INITIAL_EMAIL }]);
   const [active, setActive] = useState(0);
 
   function updateActive(patch: Partial<DraftEmail>) {
@@ -28,7 +35,7 @@ export default function NewLeadEmailsBuilder() {
   }
 
   function addFollowup() {
-    setEmails((prev) => [...prev, { ...EMPTY_EMAIL }]);
+    setEmails((prev) => [...prev, { ...FOLLOWUP_EMAIL }]);
     setActive(emails.length);
   }
 
@@ -85,14 +92,31 @@ export default function NewLeadEmailsBuilder() {
         )}
 
         <div className="space-y-3">
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-ink">Subject</label>
+          <label className="flex items-center gap-2 text-sm font-medium text-ink">
             <input
-              value={current.subject}
-              onChange={(e) => updateActive({ subject: e.target.value })}
-              className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
+              type="checkbox"
+              checked={current.hasSubject}
+              onChange={(e) => updateActive({ hasSubject: e.target.checked })}
+              className="h-4 w-4 rounded border-mist/40 accent-green"
             />
-          </div>
+            Include a subject line
+          </label>
+          {!current.hasSubject && (
+            <p className="text-xs text-slate">
+              This email will reply in the same thread as the previous one, with no new subject.
+            </p>
+          )}
+
+          {current.hasSubject && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-ink">Subject</label>
+              <input
+                value={current.subject}
+                onChange={(e) => updateActive({ subject: e.target.value })}
+                className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
+              />
+            </div>
+          )}
           <div>
             <label className="mb-1.5 block text-sm font-medium text-ink">Body</label>
             <textarea
@@ -128,7 +152,7 @@ export default function NewLeadEmailsBuilder() {
                 onChange={(e) => updateActive({ scheduledTimezone: e.target.value })}
                 className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
               >
-                <option value="">Select...</option>
+                <option value="">Auto-detect from address</option>
                 {TIMEZONES.map((tz) => (
                   <option key={tz.value} value={tz.value}>
                     {tz.label}

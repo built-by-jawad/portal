@@ -33,13 +33,16 @@ model Lead {
 
 // One row per email in a lead's sequence (order 0 = initial email, 1+ = follow-ups).
 // Follow-ups can be added/removed freely, from the Add Lead form or later from the lead detail page — there's no fixed cap.
-// scheduledDate/Time/Timezone are the planned send time, entered by hand (not computed) — kept as plain strings
-// rather than a converted UTC instant so what's displayed is always exactly what was typed.
+// scheduledDate/Time are the planned send date/time, entered by hand. scheduledTimezone is auto-guessed
+// server-side from the lead's address (see src/lib/timezone.ts) whenever left blank, but can be overridden by hand.
+// All three are kept as plain strings rather than a converted UTC instant so what's displayed is always exactly what was set.
+// hasSubject lets a follow-up skip the subject line entirely (e.g. to reply in the same email thread).
 model EmailStepRecord {
   id                String    @id @default(cuid())
   leadId            String
   lead              Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
   order             Int
+  hasSubject        Boolean   @default(true)
   subject           String
   body              String
   scheduledDate     String?

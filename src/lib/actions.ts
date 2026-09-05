@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { guessTimezoneFromAddress } from "@/lib/timezone";
 
 function str(formData: FormData, key: string): string | null {
   const v = formData.get(key);
@@ -11,7 +12,12 @@ function str(formData: FormData, key: string): string | null {
   return trimmed.length ? trimmed : null;
 }
 
+function checked(formData: FormData, key: string): boolean {
+  return formData.get(key) === "on" || formData.get(key) === "true";
+}
+
 export type DraftEmail = {
+  hasSubject: boolean;
   subject: string;
   body: string;
   scheduledDate: string;
@@ -19,16 +25,25 @@ export type DraftEmail = {
   scheduledTimezone: string;
 };
 
+const EMPTY_DRAFT: DraftEmail = {
+  hasSubject: true,
+  subject: "",
+  body: "",
+  scheduledDate: "",
+  scheduledTime: "",
+  scheduledTimezone: "",
+};
+
 function parseDraftEmails(formData: FormData): DraftEmail[] {
   const raw = formData.get("emailsJson");
-  if (typeof raw !== "string" || !raw.trim()) return [{ subject: "", body: "", scheduledDate: "", scheduledTime: "", scheduledTimezone: "" }];
+  if (typeof raw !== "string" || !raw.trim()) return [{ ...EMPTY_DRAFT }];
 
   try {
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-      return [{ subject: "", body: "", scheduledDate: "", scheduledTime: "", scheduledTimezone: "" }];
-    }
+    if (!Array.isArray(parsed) || parsed.length === 0) return [{ ...EMPTY_DRAFT }];
+
     return parsed.map((e) => ({
+      hasSubject: typeof e?.hasSubject === "boolean" ? e.hasSubject : true,
       subject: typeof e?.subject === "string" ? e.subject : "",
       body: typeof e?.body === "string" ? e.body : "",
       scheduledDate: typeof e?.scheduledDate === "string" ? e.scheduledDate : "",
@@ -36,7 +51,7 @@ function parseDraftEmails(formData: FormData): DraftEmail[] {
       scheduledTimezone: typeof e?.scheduledTimezone === "string" ? e.scheduledTimezone : "",
     }));
   } catch {
-    return [{ subject: "", body: "", scheduledDate: "", scheduledTime: "", scheduledTimezone: "" }];
+    return [{ ...EMPTY_DRAFT }];
   }
 }
 
@@ -44,7 +59,9 @@ export async function createLead(formData: FormData) {
   const businessName = str(formData, "businessName");
   if (!businessName) throw new Error("Business name is required");
 
+  const address = str(formData, "address");
   const draftEmails = parseDraftEmails(formData);
+  const guessedTimezone = guessTimezoneFromAddress(address);
 
   const lead = await prisma.lead.create({
     data: {
@@ -53,18 +70,19 @@ export async function createLead(formData: FormData) {
       email: str(formData, "email"),
       phone: str(formData, "phone"),
       website: str(formData, "website"),
-      address: str(formData, "address"),
+      address,
       trade: str(formData, "trade") ?? "OTHER",
       leakNotes: str(formData, "leakNotes"),
       notes: str(formData, "notes"),
       emails: {
         create: draftEmails.map((e, order) => ({
           order,
-          subject: e.subject,
+          hasSubject: e.hasSubject,
+          subject: e.hasSubject ? e.subject : "",
           body: e.body,
           scheduledDate: e.scheduledDate || null,
           scheduledTime: e.scheduledTime || null,
-          scheduledTimezone: e.scheduledTimezone || null,
+          scheduledTimezone: e.scheduledTimezone || guessedTimezone,
         })),
       },
     },
@@ -107,14 +125,21 @@ export async function updateLeadStatus(id: string, status: string) {
 }
 
 export async function addFollowup(leadId: string) {
-  const last = await prisma.emailStepRecord.findFirst({
-    where: { leadId },
-    orderBy: { order: "desc" },
-  });
+  const [last, lead] = await Promise.all([
+    prisma.emailStepRecord.findFirst({ where: { leadId }, orderBy: { order: "desc" } }),
+    prisma.lead.findUniqueOrThrow({ where: { id: leadId } }),
+  ]);
   const nextOrder = (last?.order ?? -1) + 1;
 
   await prisma.emailStepRecord.create({
-    data: { leadId, order: nextOrder, subject: "", body: "" },
+    data: {
+      leadId,
+      order: nextOrder,
+      hasSubject: false,
+      subject: "",
+      body: "",
+      scheduledTimezone: guessTimezoneFromAddress(lead.address),
+    },
   });
 
   revalidatePath(`/leads/${leadId}`);
@@ -126,7 +151,8 @@ export async function removeEmailStep(leadId: string, recordId: string) {
 }
 
 export async function updateEmailStep(recordId: string, formData: FormData) {
-  const subject = str(formData, "subject") ?? "";
+  const hasSubject = checked(formData, "hasSubject");
+  const subject = hasSubject ? str(formData, "subject") ?? "" : "";
   const body = str(formData, "body") ?? "";
   const scheduledDate = str(formData, "scheduledDate");
   const scheduledTime = str(formData, "scheduledTime");
@@ -134,7 +160,7 @@ export async function updateEmailStep(recordId: string, formData: FormData) {
 
   const record = await prisma.emailStepRecord.update({
     where: { id: recordId },
-    data: { subject, body, scheduledDate, scheduledTime, scheduledTimezone },
+    data: { hasSubject, subject, body, scheduledDate, scheduledTime, scheduledTimezone },
   });
 
   revalidatePath(`/leads/${record.leadId}`);
