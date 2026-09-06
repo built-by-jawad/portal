@@ -39,7 +39,11 @@ Timezone doesn't need to be picked by hand: leaving it on "Auto-detect from addr
 
 ### Reply-based pipeline
 
-Each follow-up (order > 0) has an "Only send if…" condition: **Always**, **lead replied to the previous email**, or **lead did NOT reply**. "Check for replies" on a lead's page (or the same logic run per-lead) scans the Gmail thread for each sent step and stamps `repliedAt` on it if the lead's address shows up in a message dated after `sentAt` — that's what conditions check against. `sendEmailNow` refuses to send a step whose condition isn't met yet, and the Dashboard's "Next up to send" queue only lists steps that are actually eligible. There's no scheduled/automatic check-and-send yet — replies have to be checked manually before a gated follow-up will send.
+Each follow-up (order > 0) has an "Only send if…" condition: **Always**, **lead replied to the previous email**, or **lead did NOT reply**. "Check for replies" on a lead's page scans the Gmail thread for each sent step and stamps `repliedAt` on it if the lead's address shows up in a message dated after `sentAt` — that's what conditions check against. Sending (manual or scheduled) refuses a step whose condition isn't met yet, and the Dashboard's "Next up to send" queue only lists steps that are actually eligible. Replies still have to be checked (via that button) before a gated follow-up becomes eligible — there's no automatic reply-polling.
+
+### Scheduled sending
+
+Setting a Send date/time on an email step (see "Send date"/"Send time"/"Timezone" on each tab) queues it for automatic sending — no manual click needed. A Vercel Cron job hits `/api/cron/send-scheduled` every 5 minutes (`vercel.json`), which finds every unsent step whose scheduled date/time has passed (converted from its own timezone via `src/lib/scheduling.ts`, so DST is handled correctly) and whose pipeline condition (see above) is currently satisfied, then sends each one through the same `performSend` function (`src/lib/sendEngine.ts`) the manual "Send via Gmail" button uses — so scheduled and manual sends behave identically (threading, attachments, tracking, everything). Leave both date and time blank to keep an email manual-only. The cron endpoint is protected by `CRON_SECRET`, which Vercel automatically sends as `Authorization: Bearer $CRON_SECRET` on every cron invocation.
 
 ## Data model (`prisma/schema.prisma`)
 

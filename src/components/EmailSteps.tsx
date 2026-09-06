@@ -141,9 +141,9 @@ export default function EmailSteps({
                   )}
                 </p>
               )}
-              {(current.scheduledDate || current.scheduledTime) && (
-                <p className="mt-0.5 text-xs text-slate">
-                  Scheduled {current.scheduledDate || "—"} {current.scheduledTime || ""}
+              {!current.sentAt && (current.scheduledDate || current.scheduledTime) && (
+                <p className="mt-0.5 text-xs font-medium text-green">
+                  Will auto-send {current.scheduledDate || "—"} {current.scheduledTime || ""}
                   {current.scheduledTimezone ? ` (${current.scheduledTimezone})` : ""}
                 </p>
               )}
@@ -315,6 +315,10 @@ export default function EmailSteps({
               )}
             </div>
 
+            <p className="text-xs text-slate">
+              Setting a send date/time schedules this email to go out automatically (checked every
+              few minutes) — leave both blank to only send it manually.
+            </p>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-ink">Send date</label>
