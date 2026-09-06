@@ -1,0 +1,19 @@
+name: Trigger scheduled email sends
+
+# Vercel's Hobby plan only allows cron jobs to run once a day, which isn't fast enough for real
+# scheduled sending. GitHub Actions' scheduler has no such limit and is free on public repos, so
+# this just pings the app's cron endpoint every 5 minutes instead of using vercel.json's crons.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call /api/cron/send-scheduled
+        run: |
+          curl -sf -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "https://portal-built-by-jawad.vercel.app/api/cron/send-scheduled?x-vercel-protection-bypass=${{ secrets.VERCEL_PROTECTION_BYPASS }}"
