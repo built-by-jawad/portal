@@ -10,6 +10,9 @@ import {
   removeEmailStep,
   sendEmailNow,
 } from "@/lib/actions";
+import AttachmentsUploader from "@/components/AttachmentsUploader";
+
+type Attachment = { id: string; filename: string; url: string; size: number };
 
 type StepRecord = {
   id: string;
@@ -17,43 +20,61 @@ type StepRecord = {
   hasSubject: boolean;
   subject: string;
   body: string;
+  threadMode: string;
+  condition: string;
   scheduledDate: string | null;
   scheduledTime: string | null;
   scheduledTimezone: string | null;
   sentAt: Date | null;
+  repliedAt: Date | null;
   openedAt: Date | null;
   openCount: number;
+  clickCount: number;
+  attachments: Attachment[];
 };
+
+type EmailAccountOption = { id: string; email: string; isDefault: boolean };
 
 export default function EmailSteps({
   leadId,
   leadEmail,
-  googleConnected,
+  accounts,
+  leadSendAccountId,
   records,
 }: {
   leadId: string;
   leadEmail: string | null;
-  googleConnected: boolean;
+  accounts: EmailAccountOption[];
+  leadSendAccountId: string | null;
   records: StepRecord[];
 }) {
+  const googleConnected = accounts.length > 0;
+  const defaultAccountId = accounts.find((a) => a.isDefault)?.id ?? accounts[0]?.id;
+  const effectiveAccountId = leadSendAccountId || defaultAccountId;
+
   const sorted = [...records].sort((a, b) => a.order - b.order);
   const [activeId, setActiveId] = useState<string | undefined>(sorted[0]?.id);
   const [isPending, startTransition] = useTransition();
   const [sendError, setSendError] = useState<string | null>(null);
+  const [sendAccountId, setSendAccountId] = useState<string | undefined>(effectiveAccountId);
 
   const current = sorted.find((r) => r.id === activeId) ?? sorted[0];
   const [subjectEnabled, setSubjectEnabled] = useState(current?.hasSubject ?? true);
+  const [attachmentsEnabled, setAttachmentsEnabled] = useState(
+    (current?.attachments.length ?? 0) > 0
+  );
 
   useEffect(() => {
     setSubjectEnabled(current?.hasSubject ?? true);
+    setAttachmentsEnabled((current?.attachments.length ?? 0) > 0);
     setSendError(null);
-  }, [current?.id, current?.hasSubject]);
+  }, [current?.id, current?.hasSubject, current?.attachments.length]);
 
   function handleSend() {
     setSendError(null);
     startTransition(async () => {
       try {
-        await sendEmailNow(leadId, current.id);
+        await sendEmailNow(leadId, current.id, sendAccountId);
       } catch (err) {
         setSendError(err instanceof Error ? err.message : "Failed to send email");
       }
@@ -112,6 +133,12 @@ export default function EmailSteps({
                   ) : (
                     "Not opened yet"
                   )}
+                  {current.clickCount > 0 && (
+                    <span className="text-green"> · {current.clickCount} link click{current.clickCount > 1 ? "s" : ""}</span>
+                  )}
+                  {current.repliedAt && (
+                    <span className="text-green"> · Replied {new Date(current.repliedAt).toLocaleString()}</span>
+                  )}
                 </p>
               )}
               {(current.scheduledDate || current.scheduledTime) && (
@@ -123,14 +150,29 @@ export default function EmailSteps({
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {!current.sentAt && googleConnected && leadEmail && (
-                <button
-                  type="button"
-                  disabled={isPending}
-                  onClick={handleSend}
-                  className="rounded-lg bg-green px-3 py-1.5 text-xs font-semibold text-paper transition hover:brightness-95 disabled:opacity-50"
-                >
-                  Send via Gmail
-                </button>
+                <>
+                  {accounts.length > 1 && (
+                    <select
+                      value={sendAccountId}
+                      onChange={(e) => setSendAccountId(e.target.value)}
+                      className="rounded-lg border border-mist/40 bg-white px-2 py-1.5 text-xs text-ink focus:border-green focus:outline-none"
+                    >
+                      {accounts.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.email}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    onClick={handleSend}
+                    className="rounded-lg bg-green px-3 py-1.5 text-xs font-semibold text-paper transition hover:brightness-95 disabled:opacity-50"
+                  >
+                    Send via Gmail
+                  </button>
+                </>
               )}
               {current.sentAt ? (
                 <button
@@ -201,7 +243,7 @@ export default function EmailSteps({
             </label>
             {!subjectEnabled && (
               <p className="text-xs text-slate">
-                This email will reply in the same thread as the previous one, with no new subject.
+                This email will use a &quot;Re:&quot; subject with no new line of its own.
               </p>
             )}
             {subjectEnabled && (
@@ -223,6 +265,56 @@ export default function EmailSteps({
                 className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
               />
             </div>
+
+            {current.order > 0 && (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-ink">Send as</label>
+                  <select
+                    name="threadMode"
+                    defaultValue={current.threadMode}
+                    className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
+                  >
+                    <option value="THREAD">Reply in the same thread as the previous email</option>
+                    <option value="SEPARATE">Send as a separate, new email</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-ink">Only send if…</label>
+                  <select
+                    name="condition"
+                    defaultValue={current.condition}
+                    className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
+                  >
+                    <option value="ALWAYS">Always send this step</option>
+                    <option value="IF_REPLIED">Lead replied to the previous email</option>
+                    <option value="IF_NOT_REPLIED">Lead did NOT reply to the previous email</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label className="flex items-center gap-2 text-sm font-medium text-ink">
+                <input
+                  type="checkbox"
+                  checked={attachmentsEnabled}
+                  onChange={(e) => setAttachmentsEnabled(e.target.checked)}
+                  className="h-4 w-4 rounded border-mist/40 accent-green"
+                />
+                Attach files to this email
+              </label>
+              {attachmentsEnabled && (
+                <div className="mt-2">
+                  <AttachmentsUploader
+                    leadId={leadId}
+                    recordId={current.id}
+                    attachments={current.attachments}
+                  />
+                </div>
+              )}
+            </div>
+
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-ink">Send date</label>

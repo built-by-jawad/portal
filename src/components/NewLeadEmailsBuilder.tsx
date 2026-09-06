@@ -7,6 +7,8 @@ type DraftEmail = {
   hasSubject: boolean;
   subject: string;
   body: string;
+  threadMode: "THREAD" | "SEPARATE";
+  condition: "ALWAYS" | "IF_REPLIED" | "IF_NOT_REPLIED";
   scheduledDate: string;
   scheduledTime: string;
   scheduledTimezone: string;
@@ -16,6 +18,8 @@ const INITIAL_EMAIL: DraftEmail = {
   hasSubject: true,
   subject: "",
   body: "",
+  threadMode: "THREAD",
+  condition: "ALWAYS",
   scheduledDate: "",
   scheduledTime: "",
   scheduledTimezone: "",
@@ -126,6 +130,37 @@ export default function NewLeadEmailsBuilder() {
               className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
             />
           </div>
+          {active > 0 && (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-ink">Send as</label>
+                <select
+                  value={current.threadMode}
+                  onChange={(e) =>
+                    updateActive({ threadMode: e.target.value as DraftEmail["threadMode"] })
+                  }
+                  className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
+                >
+                  <option value="THREAD">Reply in the same thread as the previous email</option>
+                  <option value="SEPARATE">Send as a separate, new email</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-ink">Only send if…</label>
+                <select
+                  value={current.condition}
+                  onChange={(e) =>
+                    updateActive({ condition: e.target.value as DraftEmail["condition"] })
+                  }
+                  className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
+                >
+                  <option value="ALWAYS">Always send this step</option>
+                  <option value="IF_REPLIED">Lead replied to the previous email</option>
+                  <option value="IF_NOT_REPLIED">Lead did NOT reply to the previous email</option>
+                </select>
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
               <label className="mb-1.5 block text-sm font-medium text-ink">Send date</label>

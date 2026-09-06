@@ -14,19 +14,22 @@ datasource db {
 // started on SQLite (no enum support) and there was no reason to churn it when moving to Postgres.
 
 model Lead {
-  id           String   @id @default(cuid())
-  businessName String
-  contactName  String?
-  email        String?
-  phone        String?
-  website      String?
-  address      String?
-  trade        String   @default("OTHER")
-  status       String   @default("NEW")
-  leakNotes    String?
-  notes        String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id            String   @id @default(cuid())
+  businessName  String
+  contactName   String?
+  email         String?
+  phone         String?
+  website       String?
+  address       String?
+  trade         String   @default("OTHER")
+  status        String   @default("NEW")
+  leakNotes     String?
+  notes         String?
+  // Which connected Gmail account sends this lead's sequence. Null = use the default account.
+  sendAccountId String?
+  sendAccount   EmailAccount? @relation(fields: [sendAccountId], references: [id], onDelete: SetNull)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   emails EmailStepRecord[]
 }
@@ -36,9 +39,15 @@ model Lead {
 // scheduledDate/Time are the planned send date/time, entered by hand. scheduledTimezone is auto-guessed
 // server-side from the lead's address (see src/lib/timezone.ts) whenever left blank, but can be overridden by hand.
 // All three are kept as plain strings rather than a converted UTC instant so what's displayed is always exactly what was set.
-// hasSubject lets a follow-up skip the subject line entirely (e.g. to reply in the same email thread).
+// hasSubject lets a follow-up skip the subject line entirely.
+// threadMode controls whether a follow-up replies in the same Gmail thread as the previous email ("THREAD") or
+// goes out as a fresh, separate email/thread ("SEPARATE") — independent of whether it shows a subject line.
+// condition drives simple reply-based branching ("pipeline"): ALWAYS sends regardless, IF_REPLIED only sends if
+// the lead replied to the previous email, IF_NOT_REPLIED only sends if they didn't. repliedAt is stamped by
+// checkRepliesForLead() scanning the connected inbox for a reply after this email's sentAt.
 // gmailThreadId/gmailMessageId are set once actually sent via Gmail, so later emails in the same lead's
 // sequence can be threaded as a reply. openedAt/openCount come from the tracking pixel embedded in the sent body.
+// clickCount/firstClickAt/lastClickAt are aggregate link-click stats; individual clicks are in ClickEvent.
 model EmailStepRecord {
   id                String    @id @default(cuid())
   leadId            String
@@ -47,29 +56,65 @@ model EmailStepRecord {
   hasSubject        Boolean   @default(true)
   subject           String
   body              String
+  threadMode        String    @default("THREAD")
+  condition         String    @default("ALWAYS")
   scheduledDate     String?
   scheduledTime     String?
   scheduledTimezone String?
   sentAt            DateTime?
+  repliedAt         DateTime?
   gmailThreadId     String?
   gmailMessageId    String?
   openedAt          DateTime?
   openCount         Int       @default(0)
+  clickCount        Int       @default(0)
+  firstClickAt      DateTime?
+  lastClickAt       DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
+
+  attachments Attachment[]
+  clicks      ClickEvent[]
 
   @@unique([leadId, order])
 }
 
-// Singleton row (id is always "singleton") holding the connected Gmail account's OAuth tokens.
-// This is a single-user internal tool, so one row is enough — no per-user auth needed.
-model GoogleAuth {
-  id           String    @id @default("singleton")
-  email        String?
+// A file attached to a specific email step, uploaded to Vercel Blob storage. Stored separately from the
+// record rather than as a list column so files can be added/removed one at a time.
+model Attachment {
+  id                String          @id @default(cuid())
+  emailStepRecordId String
+  emailStepRecord   EmailStepRecord @relation(fields: [emailStepRecordId], references: [id], onDelete: Cascade)
+  filename          String
+  url               String
+  size              Int
+  contentType       String
+  createdAt         DateTime        @default(now())
+}
+
+// One row per link click recorded through the /api/click redirect, for per-link detail beyond the
+// aggregate counters on EmailStepRecord.
+model ClickEvent {
+  id                String          @id @default(cuid())
+  emailStepRecordId String
+  emailStepRecord   EmailStepRecord @relation(fields: [emailStepRecordId], references: [id], onDelete: Cascade)
+  url               String
+  clickedAt         DateTime        @default(now())
+}
+
+// A connected Gmail account the portal can send from. Multiple accounts can be connected at once
+// (replaces the old GoogleAuth singleton) — each lead picks which one its sequence sends from via
+// Lead.sendAccountId, defaulting to whichever account has isDefault set.
+model EmailAccount {
+  id           String    @id @default(cuid())
+  email        String    @unique
   accessToken  String?
   refreshToken String
   expiryDate   DateTime?
   scope        String?
+  isDefault    Boolean   @default(false)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+
+  leads Lead[]
 }

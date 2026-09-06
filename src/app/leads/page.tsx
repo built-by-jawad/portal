@@ -22,14 +22,6 @@ export default async function LeadsPage({
       <PageHeader
         title="Leads"
         description={`${leads.length} lead${leads.length === 1 ? "" : "s"}${filter ? ` · ${LEAD_STATUS_LABELS[filter as keyof typeof LEAD_STATUS_LABELS]}` : ""}`}
-        action={
-          <Link
-            href="/leads/new"
-            className="inline-flex items-center justify-center rounded-lg bg-green px-4 py-2.5 text-sm font-semibold text-paper transition hover:brightness-95"
-          >
-            + Add Lead
-          </Link>
-        }
       />
 
       <div className="mb-6 flex flex-wrap gap-2">

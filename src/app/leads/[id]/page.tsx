@@ -8,8 +8,10 @@ import StatusSelect from "@/components/StatusSelect";
 import EmailSteps from "@/components/EmailSteps";
 import DeleteLeadButton from "@/components/DeleteLeadButton";
 import LeadInbox from "@/components/LeadInbox";
+import LeadSendAccountSelect from "@/components/LeadSendAccountSelect";
+import CheckRepliesButton from "@/components/CheckRepliesButton";
 import { updateLead } from "@/lib/actions";
-import { isGoogleConnected } from "@/lib/google";
+import { getDefaultAccountId, listEmailAccounts } from "@/lib/google";
 
 export default async function LeadDetailPage({
   params,
@@ -18,14 +20,19 @@ export default async function LeadDetailPage({
 }) {
   const { id } = await params;
 
-  const [lead, googleConnected] = await Promise.all([
-    prisma.lead.findUnique({ where: { id }, include: { emails: true } }),
-    isGoogleConnected(),
+  const [lead, accounts, defaultAccountId] = await Promise.all([
+    prisma.lead.findUnique({
+      where: { id },
+      include: { emails: { include: { attachments: true }, orderBy: { order: "asc" } } },
+    }),
+    listEmailAccounts(),
+    getDefaultAccountId(),
   ]);
 
   if (!lead) notFound();
 
   const boundUpdate = updateLead.bind(null, lead.id);
+  const inboxAccountId = lead.sendAccountId || defaultAccountId;
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 md:py-10">
@@ -46,17 +53,23 @@ export default async function LeadDetailPage({
         }
       />
 
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        <LeadSendAccountSelect leadId={lead.id} accounts={accounts} value={lead.sendAccountId} />
+        <CheckRepliesButton leadId={lead.id} />
+      </div>
+
       <div className="mb-10">
         <h2 className="font-display mb-4 text-lg font-bold text-ink">Emails</h2>
         <EmailSteps
           leadId={lead.id}
           leadEmail={lead.email}
-          googleConnected={googleConnected}
+          accounts={accounts}
+          leadSendAccountId={lead.sendAccountId}
           records={lead.emails}
         />
       </div>
 
-      {googleConnected && lead.email && (
+      {inboxAccountId && lead.email && (
         <div className="mb-10">
           <h2 className="font-display mb-4 text-lg font-bold text-ink">
             Inbox <span className="font-sans text-xs font-normal text-slate">(only messages with {lead.email})</span>
@@ -68,7 +81,7 @@ export default async function LeadDetailPage({
               </div>
             }
           >
-            <LeadInbox email={lead.email} />
+            <LeadInbox accountId={inboxAccountId} email={lead.email} />
           </Suspense>
         </div>
       )}

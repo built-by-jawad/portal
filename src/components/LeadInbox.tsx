@@ -1,11 +1,17 @@
 import { listMessagesForAddress } from "@/lib/google";
 
-export default async function LeadInbox({ email }: { email: string }) {
+export default async function LeadInbox({
+  accountId,
+  email,
+}: {
+  accountId: string;
+  email: string;
+}) {
   let messages;
   let error: string | null = null;
 
   try {
-    messages = await listMessagesForAddress(email);
+    messages = await listMessagesForAddress(accountId, email);
   } catch (err) {
     error = err instanceof Error ? err.message : "Failed to load inbox";
   }

@@ -28,6 +28,9 @@ export function getGoogleAuthUrl() {
   });
 }
 
+// Exchanges an OAuth code for tokens and upserts an EmailAccount row for whichever Google
+// account just authorized — this is how multiple Gmail accounts get connected, one per
+// /api/google/connect round trip. The first account connected is made the default automatically.
 export async function exchangeCodeForTokens(code: string) {
   const client = newOAuthClient();
   const { tokens } = await client.getToken(code);
@@ -35,46 +38,68 @@ export async function exchangeCodeForTokens(code: string) {
 
   const oauth2 = google.oauth2({ version: "v2", auth: client });
   const { data: profile } = await oauth2.userinfo.get();
+  if (!profile.email) throw new Error("Google did not return an email address");
 
-  await prisma.googleAuth.upsert({
-    where: { id: "singleton" },
+  const existingCount = await prisma.emailAccount.count();
+
+  await prisma.emailAccount.upsert({
+    where: { email: profile.email },
     update: {
-      email: profile.email ?? undefined,
       accessToken: tokens.access_token ?? undefined,
       refreshToken: tokens.refresh_token ?? undefined,
       expiryDate: tokens.expiry_date ? new Date(tokens.expiry_date) : undefined,
       scope: tokens.scope ?? undefined,
     },
     create: {
-      id: "singleton",
-      email: profile.email ?? null,
+      email: profile.email,
       accessToken: tokens.access_token ?? null,
       refreshToken: tokens.refresh_token ?? "",
       expiryDate: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
       scope: tokens.scope ?? null,
+      isDefault: existingCount === 0,
     },
   });
 
   return profile.email;
 }
 
+export type ConnectedAccount = { id: string; email: string; isDefault: boolean };
+
+export async function listEmailAccounts(): Promise<ConnectedAccount[]> {
+  const rows = await prisma.emailAccount.findMany({
+    where: { refreshToken: { not: "" } },
+    orderBy: [{ isDefault: "desc" }, { email: "asc" }],
+  });
+  return rows.map((r) => ({ id: r.id, email: r.email, isDefault: r.isDefault }));
+}
+
 export async function isGoogleConnected() {
-  const row = await prisma.googleAuth.findUnique({ where: { id: "singleton" } });
-  return !!row?.refreshToken;
+  const count = await prisma.emailAccount.count({ where: { refreshToken: { not: "" } } });
+  return count > 0;
 }
 
-export async function getConnectedEmail() {
-  const row = await prisma.googleAuth.findUnique({ where: { id: "singleton" } });
-  return row?.email ?? null;
+export async function getDefaultAccountId() {
+  const row = await prisma.emailAccount.findFirst({
+    where: { refreshToken: { not: "" } },
+    orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+  });
+  return row?.id ?? null;
 }
 
-export async function disconnectGoogle() {
-  await prisma.googleAuth.deleteMany({ where: { id: "singleton" } });
+export async function setDefaultAccount(accountId: string) {
+  await prisma.$transaction([
+    prisma.emailAccount.updateMany({ data: { isDefault: false }, where: {} }),
+    prisma.emailAccount.update({ where: { id: accountId }, data: { isDefault: true } }),
+  ]);
 }
 
-async function getAuthorizedClient() {
-  const row = await prisma.googleAuth.findUnique({ where: { id: "singleton" } });
-  if (!row?.refreshToken) throw new Error("Gmail is not connected");
+export async function disconnectAccount(accountId: string) {
+  await prisma.emailAccount.delete({ where: { id: accountId } });
+}
+
+async function getAuthorizedClient(accountId: string) {
+  const row = await prisma.emailAccount.findUnique({ where: { id: accountId } });
+  if (!row?.refreshToken) throw new Error("This Gmail account is not connected");
 
   const client = newOAuthClient();
   client.setCredentials({
@@ -84,9 +109,9 @@ async function getAuthorizedClient() {
   });
 
   client.on("tokens", (tokens) => {
-    prisma.googleAuth
+    prisma.emailAccount
       .update({
-        where: { id: "singleton" },
+        where: { id: accountId },
         data: {
           accessToken: tokens.access_token ?? undefined,
           expiryDate: tokens.expiry_date ? new Date(tokens.expiry_date) : undefined,
@@ -99,8 +124,9 @@ async function getAuthorizedClient() {
   return client;
 }
 
-function base64url(input: string) {
-  return Buffer.from(input, "utf-8")
+function base64url(input: Buffer | string) {
+  const buf = typeof input === "string" ? Buffer.from(input, "utf-8") : input;
+  return buf
     .toString("base64")
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
@@ -114,39 +140,92 @@ function escapeHtml(text: string) {
     .replace(/>/g, "&gt;");
 }
 
-function textToHtml(body: string) {
-  return escapeHtml(body).replace(/\n/g, "<br>\n");
+const URL_PATTERN = /https?:\/\/[^\s<]+[^\s<.,;:!?)]/g;
+
+// Converts plain-text body into HTML, auto-linkifying bare URLs and routing each one through the
+// click-tracking redirect (see /api/click/[id]) when a recordId is given.
+function textToHtml(body: string, clickTrackingBaseUrl?: string) {
+  const escaped = escapeHtml(body);
+  const linked = escaped.replace(URL_PATTERN, (url) => {
+    const href = clickTrackingBaseUrl
+      ? `${clickTrackingBaseUrl}${clickTrackingBaseUrl.includes("?") ? "&" : "?"}u=${encodeURIComponent(url)}`
+      : url;
+    return `<a href="${href}">${url}</a>`;
+  });
+  return linked.replace(/\n/g, "<br>\n");
 }
 
+export type EmailAttachment = { filename: string; url: string; contentType: string };
+
 export async function sendGmail(opts: {
+  accountId: string;
   to: string;
   subject: string;
   bodyText: string;
   trackingPixelUrl?: string;
+  clickTrackingBaseUrl?: string;
   threadId?: string;
   inReplyToMessageId?: string;
+  attachments?: EmailAttachment[];
 }) {
-  const client = await getAuthorizedClient();
+  const client = await getAuthorizedClient(opts.accountId);
   const gmail = google.gmail({ version: "v1", auth: client });
 
   const html =
-    textToHtml(opts.bodyText) +
+    textToHtml(opts.bodyText, opts.clickTrackingBaseUrl) +
     (opts.trackingPixelUrl
       ? `\n<img src="${opts.trackingPixelUrl}" width="1" height="1" style="display:none" alt="">`
       : "");
 
-  const headers = [
-    `To: ${opts.to}`,
-    `Subject: ${opts.subject}`,
-    "Content-Type: text/html; charset=UTF-8",
-    "MIME-Version: 1.0",
-  ];
+  const commonHeaders = [`To: ${opts.to}`, `Subject: ${opts.subject}`, "MIME-Version: 1.0"];
   if (opts.inReplyToMessageId) {
-    headers.push(`In-Reply-To: <${opts.inReplyToMessageId}>`);
-    headers.push(`References: <${opts.inReplyToMessageId}>`);
+    commonHeaders.push(`In-Reply-To: <${opts.inReplyToMessageId}>`);
+    commonHeaders.push(`References: <${opts.inReplyToMessageId}>`);
   }
 
-  const raw = base64url(`${headers.join("\r\n")}\r\n\r\n${html}`);
+  let raw: string;
+
+  if (opts.attachments && opts.attachments.length > 0) {
+    const boundary = `boundary_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const parts: string[] = [
+      `Content-Type: text/html; charset=UTF-8`,
+      `MIME-Version: 1.0`,
+      ``,
+      html,
+    ];
+
+    const attachmentBuffers = await Promise.all(
+      opts.attachments.map(async (a) => {
+        const res = await fetch(a.url);
+        const buf = Buffer.from(await res.arrayBuffer());
+        return { ...a, buf };
+      })
+    );
+
+    const bodyParts = [
+      `--${boundary}`,
+      ...parts,
+      ...attachmentBuffers.flatMap((a) => [
+        `--${boundary}`,
+        `Content-Type: ${a.contentType}; name="${a.filename}"`,
+        `Content-Disposition: attachment; filename="${a.filename}"`,
+        `Content-Transfer-Encoding: base64`,
+        ``,
+        a.buf.toString("base64"),
+      ]),
+      `--${boundary}--`,
+    ].join("\r\n");
+
+    raw = base64url(
+      `${[...commonHeaders, `Content-Type: multipart/mixed; boundary="${boundary}"`].join(
+        "\r\n"
+      )}\r\n\r\n${bodyParts}`
+    );
+  } else {
+    raw = base64url(
+      `${[...commonHeaders, "Content-Type: text/html; charset=UTF-8"].join("\r\n")}\r\n\r\n${html}`
+    );
+  }
 
   const { data } = await gmail.users.messages.send({
     userId: "me",
@@ -168,8 +247,11 @@ export type InboxMessage = {
   subject: string;
 };
 
-export async function listMessagesForAddress(address: string): Promise<InboxMessage[]> {
-  const client = await getAuthorizedClient();
+export async function listMessagesForAddress(
+  accountId: string,
+  address: string
+): Promise<InboxMessage[]> {
+  const client = await getAuthorizedClient(accountId);
   const gmail = google.gmail({ version: "v1", auth: client });
 
   const { data } = await gmail.users.messages.list({
@@ -202,4 +284,35 @@ export async function listMessagesForAddress(address: string): Promise<InboxMess
   );
 
   return details.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+}
+
+// Fetches the full message list for a thread (used to detect whether the lead has replied), scoped
+// to the account that owns the thread.
+export async function threadHasReplyFrom(
+  accountId: string,
+  threadId: string,
+  leadEmail: string,
+  after: Date
+): Promise<boolean> {
+  const client = await getAuthorizedClient(accountId);
+  const gmail = google.gmail({ version: "v1", auth: client });
+
+  const { data } = await gmail.users.threads.get({
+    userId: "me",
+    id: threadId,
+    format: "metadata",
+    metadataHeaders: ["From", "Date"],
+  });
+
+  const messages = data.messages ?? [];
+  return messages.some((m) => {
+    const headers = m.payload?.headers ?? [];
+    const from = headers.find((h) => h.name?.toLowerCase() === "from")?.value ?? "";
+    const internalDate = m.internalDate ? new Date(Number(m.internalDate)) : null;
+    return (
+      from.toLowerCase().includes(leadEmail.toLowerCase()) &&
+      internalDate !== null &&
+      internalDate.getTime() > after.getTime()
+    );
+  });
 }
