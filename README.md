@@ -43,7 +43,13 @@ Each follow-up (order > 0) has an "Only send if…" condition: **Always**, **lea
 
 ### Scheduled sending
 
-Setting a Send date/time on an email step (see "Send date"/"Send time"/"Timezone" on each tab) queues it for automatic sending — no manual click needed. A Vercel Cron job hits `/api/cron/send-scheduled` every 5 minutes (`vercel.json`), which finds every unsent step whose scheduled date/time has passed (converted from its own timezone via `src/lib/scheduling.ts`, so DST is handled correctly) and whose pipeline condition (see above) is currently satisfied, then sends each one through the same `performSend` function (`src/lib/sendEngine.ts`) the manual "Send via Gmail" button uses — so scheduled and manual sends behave identically (threading, attachments, tracking, everything). Leave both date and time blank to keep an email manual-only. The cron endpoint is protected by `CRON_SECRET`, which Vercel automatically sends as `Authorization: Bearer $CRON_SECRET` on every cron invocation.
+Setting a Send date/time on an email step (see "Send date"/"Send time"/"Timezone" on each tab) queues it for automatic sending — no manual click needed. `/api/cron/send-scheduled` finds every unsent step whose scheduled date/time has passed (converted from its own timezone via `src/lib/scheduling.ts`, so DST is handled correctly) and whose pipeline condition (see above) is currently satisfied, then sends each one through the same `performSend` function (`src/lib/sendEngine.ts`) the manual "Send via Gmail" button uses — so scheduled and manual sends behave identically (threading, attachments, tracking, everything). Leave both date and time blank to keep an email manual-only.
+
+That endpoint is triggered by a **GitHub Actions workflow** (`.github/workflows/scheduled-send.yml`) on a `*/5 * * * *` schedule, not Vercel Cron — Vercel's Hobby plan caps cron jobs at once/day, too coarse for real scheduling, and GitHub Actions' scheduler is free with no such limit on this repo (it's public). The workflow needs two repo secrets (Settings → Secrets and variables → Actions on `github.com/built-by-jawad/portal`):
+- `CRON_SECRET` — matches the `CRON_SECRET` env var on Vercel; the route checks this to make sure only the workflow (not a random visitor) can trigger sends.
+- `VERCEL_PROTECTION_BYPASS` — a Protection Bypass for Automation secret from Vercel (Project Settings → Deployment Protection), needed because Vercel's deployment-protection wall would otherwise block the workflow's anonymous request before it ever reaches the app.
+
+GitHub Actions' schedule trigger can silently fire late (sometimes 15–30+ min) during platform load, and gets disabled automatically after 60 days of repo inactivity — re-enable it from the Actions tab if scheduled sends stop firing after a long quiet period.
 
 ## Data model (`prisma/schema.prisma`)
 
