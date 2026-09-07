@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
-import CopyBox from "@/components/CopyBox";
+import ScriptContentView from "@/components/ScriptContentView";
 import DeleteScriptButton from "@/components/DeleteScriptButton";
 import { prisma } from "@/lib/prisma";
 
@@ -40,7 +40,7 @@ export default async function ScriptDetailPage({
         }
       />
 
-      <CopyBox label="Content" text={script.content} />
+      <ScriptContentView html={script.content} />
 
       <p className="mt-4 text-xs text-slate">
         Last updated {script.updatedAt.toLocaleString()}

@@ -4,6 +4,14 @@ import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
+function stripHtml(html: string): string {
+  return html
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export default async function ScriptsPage() {
   const scripts = await prisma.script.findMany({ orderBy: { updatedAt: "desc" } });
 
@@ -44,7 +52,7 @@ export default async function ScriptsPage() {
                 </span>
               )}
               <p className="font-display font-bold text-ink">{script.title}</p>
-              <p className="mt-1 line-clamp-3 text-sm text-slate">{script.content}</p>
+              <p className="mt-1 line-clamp-3 text-sm text-slate">{stripHtml(script.content)}</p>
             </Link>
           ))}
         </div>

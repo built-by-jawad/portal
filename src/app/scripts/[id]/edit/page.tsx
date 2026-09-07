@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import { prisma } from "@/lib/prisma";
 import { updateScript } from "@/lib/actions";
+import RichTextEditor from "@/components/RichTextEditor";
 
 export const dynamic = "force-dynamic";
 
@@ -47,13 +48,7 @@ export default async function EditScriptPage({
           <label className="mb-1.5 block text-sm font-medium text-ink">
             Content <span className="text-green">*</span>
           </label>
-          <textarea
-            name="content"
-            required
-            rows={14}
-            defaultValue={script.content}
-            className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 font-mono text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
-          />
+          <RichTextEditor initialContent={script.content} />
         </div>
 
         <button
