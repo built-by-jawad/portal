@@ -28,16 +28,17 @@ export default async function TodayPage() {
     include: { lead: { select: { id: true, businessName: true, email: true } } },
   });
 
+  const pakistanToday = todayInTimeZone(PAKISTAN_TZ);
+
   const todays = candidates
-    .filter((r) => {
-      const tz = r.scheduledTimezone || "UTC";
-      return r.scheduledDate === todayInTimeZone(tz);
-    })
     .map((r) => ({
       ...r,
       sortInstant:
         scheduledToUtc(r.scheduledDate!, r.scheduledTime || "09:00", r.scheduledTimezone || "UTC")?.getTime() ?? 0,
     }))
+    // "Today" is judged in Pakistan time (where this is actually read from), not the lead's own
+    // timezone — a 9am Chicago send can already be "today" here while it's still yesterday there.
+    .filter((r) => todayInTimeZone(PAKISTAN_TZ, new Date(r.sortInstant)) === pakistanToday)
     .sort((a, b) => a.sortInstant - b.sortInstant);
 
   return (
