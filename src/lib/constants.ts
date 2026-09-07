@@ -36,6 +36,18 @@ export const TRADE_LABELS: Record<Trade, string> = {
   OTHER: "Other",
 };
 
+export const SOCIAL_PLATFORMS = ["INSTAGRAM", "FACEBOOK", "LINKEDIN"] as const;
+
+export type SocialPlatform = (typeof SOCIAL_PLATFORMS)[number];
+
+export const SOCIAL_PLATFORM_LABELS: Record<SocialPlatform, string> = {
+  INSTAGRAM: "Instagram",
+  FACEBOOK: "Facebook",
+  LINKEDIN: "LinkedIn",
+};
+
+export const ENGAGEMENT_DAYS = 7;
+
 export function emailStepLabel(order: number): string {
   return order === 0 ? "Initial Email" : `Follow-up ${order}`;
 }

@@ -31,10 +31,32 @@ model Lead {
   // Which connected Gmail account sends this lead's sequence. Null = use the default account.
   sendAccountId String?
   sendAccount   EmailAccount? @relation(fields: [sendAccountId], references: [id], onDelete: SetNull)
+  // Social platforms this lead is active on (values from src/lib/constants.ts SOCIAL_PLATFORMS,
+  // e.g. INSTAGRAM/FACEBOOK/LINKEDIN). Adding a platform seeds a 7-day EngagementDay checklist for it.
+  socialPlatforms String[] @default([])
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  emails EmailStepRecord[]
+  emails          EmailStepRecord[]
+  engagementDays  EngagementDay[]
+}
+
+// One row per day of a 7-day "warm engagement" checklist for one lead on one platform (day 1..7).
+// Seeded automatically when a platform is added to Lead.socialPlatforms, starting from the day it
+// was added. `date` is the calendar day this check-in is planned for; `completedAt` is set when you
+// actually mark that day's engagement done. Powers both the /engagement cards and its calendar view.
+model EngagementDay {
+  id          String    @id @default(cuid())
+  leadId      String
+  lead        Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  platform    String
+  dayNumber   Int
+  date        String
+  note        String?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@unique([leadId, platform, dayNumber])
 }
 
 // One row per email in a lead's sequence (order 0 = initial email, 1+ = follow-ups).

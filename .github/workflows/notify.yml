@@ -1,0 +1,19 @@
+name: Slack digest of action-needed items
+
+# Posts to Slack (via /api/cron/notify) whenever there's an unsent scheduled email or an unmarked
+# engagement check-in due. Read-only — it never sends emails or changes data, just reports — so
+# unlike the scheduled-send workflow this one runs on its schedule by default.
+on:
+  schedule:
+    - cron: "0 */3 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call /api/cron/notify
+        run: |
+          curl -sf -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "https://portal-built-by-jawad.vercel.app/api/cron/notify?x-vercel-protection-bypass=${{ secrets.VERCEL_PROTECTION_BYPASS }}"

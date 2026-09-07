@@ -12,6 +12,7 @@ import {
   threadHasReplyFrom,
 } from "@/lib/google";
 import { performSend } from "@/lib/sendEngine";
+import { ENGAGEMENT_DAYS, SOCIAL_PLATFORMS } from "@/lib/constants";
 
 function str(formData: FormData, key: string): string | null {
   const v = formData.get(key);
@@ -29,6 +30,33 @@ function secondaryEmails(formData: FormData): string[] {
     .getAll("secondaryEmails")
     .map((v) => (typeof v === "string" ? v.trim() : ""))
     .filter(Boolean);
+}
+
+function socialPlatforms(formData: FormData): string[] {
+  return formData
+    .getAll("socialPlatforms")
+    .filter((v): v is string => typeof v === "string" && (SOCIAL_PLATFORMS as readonly string[]).includes(v));
+}
+
+// Seeds a 7-day engagement checklist for each newly-checked platform, starting today. Existing
+// platforms are left alone (createMany + skipDuplicates on the unique leadId/platform/dayNumber
+// constraint) so re-saving the lead form never resets progress already made.
+async function seedEngagementDays(leadId: string, platforms: string[]) {
+  if (platforms.length === 0) return;
+  const today = new Date();
+  const data = platforms.flatMap((platform) =>
+    Array.from({ length: ENGAGEMENT_DAYS }, (_, i) => {
+      const date = new Date(today);
+      date.setDate(date.getDate() + i);
+      return {
+        leadId,
+        platform,
+        dayNumber: i + 1,
+        date: date.toISOString().slice(0, 10),
+      };
+    })
+  );
+  await prisma.engagementDay.createMany({ data, skipDuplicates: true });
 }
 
 export type DraftEmail = {
@@ -87,6 +115,7 @@ export async function createLead(formData: FormData) {
   const draftEmails = parseDraftEmails(formData);
   const guessedTimezone = guessTimezoneFromAddress(address);
   const sendAccountId = str(formData, "sendAccountId");
+  const platforms = socialPlatforms(formData);
 
   const lead = await prisma.lead.create({
     data: {
@@ -101,6 +130,7 @@ export async function createLead(formData: FormData) {
       leakNotes: str(formData, "leakNotes"),
       notes: str(formData, "notes"),
       sendAccountId,
+      socialPlatforms: platforms,
       emails: {
         create: draftEmails.map((e, order) => ({
           order,
@@ -117,11 +147,17 @@ export async function createLead(formData: FormData) {
     },
   });
 
+  await seedEngagementDays(lead.id, platforms);
+
   revalidatePath("/leads");
   redirect(`/leads/${lead.id}`);
 }
 
 export async function updateLead(id: string, formData: FormData) {
+  const existing = await prisma.lead.findUniqueOrThrow({ where: { id }, select: { socialPlatforms: true } });
+  const platforms = socialPlatforms(formData);
+  const newlyAdded = platforms.filter((p) => !existing.socialPlatforms.includes(p));
+
   await prisma.lead.update({
     where: { id },
     data: {
@@ -135,11 +171,15 @@ export async function updateLead(id: string, formData: FormData) {
       trade: str(formData, "trade") ?? "OTHER",
       leakNotes: str(formData, "leakNotes"),
       notes: str(formData, "notes"),
+      socialPlatforms: platforms,
     },
   });
 
+  await seedEngagementDays(id, newlyAdded);
+
   revalidatePath(`/leads/${id}`);
   revalidatePath("/leads");
+  revalidatePath("/engagement");
 }
 
 export async function updateLeadSendAccount(leadId: string, sendAccountId: string) {
@@ -320,4 +360,22 @@ export async function setDefaultAccountAction(accountId: string) {
 export async function disconnectAccountAction(accountId: string) {
   await disconnectAccount(accountId);
   revalidatePath("/settings");
+}
+
+export async function toggleEngagementDay(dayId: string, leadId: string) {
+  const day = await prisma.engagementDay.findUniqueOrThrow({ where: { id: dayId } });
+  await prisma.engagementDay.update({
+    where: { id: dayId },
+    data: { completedAt: day.completedAt ? null : new Date() },
+  });
+  revalidatePath(`/engagement/${leadId}`);
+  revalidatePath("/engagement");
+}
+
+export async function updateEngagementNote(dayId: string, leadId: string, formData: FormData) {
+  await prisma.engagementDay.update({
+    where: { id: dayId },
+    data: { note: str(formData, "note") },
+  });
+  revalidatePath(`/engagement/${leadId}`);
 }

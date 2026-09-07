@@ -1,6 +1,7 @@
 import { TRADES, TRADE_LABELS } from "@/lib/constants";
 import type { Lead } from "@prisma/client";
 import SecondaryEmailsField from "@/components/SecondaryEmailsField";
+import SocialPlatformsField from "@/components/SocialPlatformsField";
 
 export default function LeadFieldsSection({ lead }: { lead?: Lead }) {
   return (
@@ -39,6 +40,7 @@ export default function LeadFieldsSection({ lead }: { lead?: Lead }) {
               className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
             />
           </div>
+          <SocialPlatformsField initial={lead?.socialPlatforms ?? []} />
         </div>
       </div>
 

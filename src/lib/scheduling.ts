@@ -46,3 +46,21 @@ export function isDue(dateStr: string | null, timeStr: string | null, timeZone: 
   const due = scheduledToUtc(dateStr, timeStr || "09:00", timeZone || "UTC");
   return due !== null && due.getTime() <= now.getTime();
 }
+
+export type CalendarView = "today" | "week" | "month";
+
+// Adds days to a YYYY-MM-DD string, staying in plain calendar-date arithmetic (no timezone
+// involved — the date strings this operates on are already "as seen in some zone").
+export function addDays(dateStr: string, days: number): string {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+// Whether `dateStr` falls within the given calendar view, anchored on `todayStr`. "week" is the
+// next 7 days starting today; "month" is the rest of the current calendar month (by YYYY-MM).
+export function isInView(dateStr: string, todayStr: string, view: CalendarView): boolean {
+  if (view === "today") return dateStr === todayStr;
+  if (view === "week") return dateStr >= todayStr && dateStr <= addDays(todayStr, 6);
+  return dateStr.slice(0, 7) === todayStr.slice(0, 7);
+}
