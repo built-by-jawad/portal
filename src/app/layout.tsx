@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Space_Grotesk, Inter } from "next/font/google";
 import "./globals.css";
 import Sidebar from "@/components/Sidebar";
-import AddLeadFab from "@/components/AddLeadFab";
+import AddFab from "@/components/AddFab";
 import ToastProvider from "@/components/ToastProvider";
 
 const spaceGrotesk = Space_Grotesk({
@@ -35,7 +35,7 @@ export default function RootLayout({
             <Sidebar />
             <main className="flex-1 min-w-0">{children}</main>
           </div>
-          <AddLeadFab />
+          <AddFab />
         </ToastProvider>
       </body>
     </html>

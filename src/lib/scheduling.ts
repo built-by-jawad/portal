@@ -57,10 +57,32 @@ export function addDays(dateStr: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-// Whether `dateStr` falls within the given calendar view, anchored on `todayStr`. "week" is the
-// next 7 days starting today; "month" is the rest of the current calendar month (by YYYY-MM).
+function dayOfWeek(dateStr: string): number {
+  return new Date(`${dateStr}T00:00:00Z`).getUTCDay(); // 0 = Sunday
+}
+
+// The 7 dates (Sun–Sat) of the calendar week containing `anchorStr` — a real calendar week, not a
+// rolling 7-day window, so the week grid lines up the way Google Calendar's does.
+export function getWeekDates(anchorStr: string): string[] {
+  const start = addDays(anchorStr, -dayOfWeek(anchorStr));
+  return Array.from({ length: 7 }, (_, i) => addDays(start, i));
+}
+
+// The 42 dates (6 full Sun–Sat weeks) that cover the calendar month containing `anchorStr`,
+// including the leading/trailing days from adjacent months — the standard month-grid shape.
+export function getMonthGridDates(anchorStr: string): string[] {
+  const firstOfMonth = `${anchorStr.slice(0, 7)}-01`;
+  const gridStart = addDays(firstOfMonth, -dayOfWeek(firstOfMonth));
+  return Array.from({ length: 42 }, (_, i) => addDays(gridStart, i));
+}
+
+// Whether `dateStr` falls within the given calendar view, anchored on `todayStr`. "week"/"month"
+// are real calendar boundaries (Sun–Sat week, full month) matching the grid views.
 export function isInView(dateStr: string, todayStr: string, view: CalendarView): boolean {
   if (view === "today") return dateStr === todayStr;
-  if (view === "week") return dateStr >= todayStr && dateStr <= addDays(todayStr, 6);
+  if (view === "week") {
+    const week = getWeekDates(todayStr);
+    return dateStr >= week[0] && dateStr <= week[6];
+  }
   return dateStr.slice(0, 7) === todayStr.slice(0, 7);
 }

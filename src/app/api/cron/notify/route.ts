@@ -21,5 +21,6 @@ export async function GET(request: NextRequest) {
     sent: !!message,
     dueEmails: items.dueEmails.length,
     dueEngagement: items.dueEngagement.length,
+    dueTasks: items.dueTasks.length,
   });
 }

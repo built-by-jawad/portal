@@ -7,15 +7,16 @@ const PAKISTAN_TZ = "Asia/Karachi";
 export type ActionItems = {
   dueEmails: { leadId: string; businessName: string; label: string; date: string }[];
   dueEngagement: { leadId: string; businessName: string; platform: string; dayNumber: number; date: string }[];
+  dueTasks: { title: string; businessName: string | null; date: string }[];
 };
 
-// Everything that's due (today or overdue, in Pakistan time) and still needs a human action:
-// an outreach email not yet sent, or an engagement check-in not yet marked done. Used both by the
-// Slack digest cron and could back an in-app badge later.
+// Everything that's due (today or overdue, in Pakistan time) and still needs a human action: an
+// outreach email not yet sent, an engagement check-in not yet marked done, or a task not yet done.
+// Used both by the Slack digest cron and could back an in-app badge later.
 export async function getActionItems(): Promise<ActionItems> {
   const today = todayInTimeZone(PAKISTAN_TZ);
 
-  const [emailCandidates, engagementCandidates] = await Promise.all([
+  const [emailCandidates, engagementCandidates, taskCandidates] = await Promise.all([
     prisma.emailStepRecord.findMany({
       where: {
         sentAt: null,
@@ -27,6 +28,10 @@ export async function getActionItems(): Promise<ActionItems> {
     prisma.engagementDay.findMany({
       where: { completedAt: null, date: { lte: today } },
       include: { lead: { select: { id: true, businessName: true } } },
+    }),
+    prisma.task.findMany({
+      where: { completedAt: null, dueDate: { lte: today } },
+      include: { lead: { select: { businessName: true } } },
     }),
   ]);
 
@@ -52,11 +57,19 @@ export async function getActionItems(): Promise<ActionItems> {
     date: d.date,
   }));
 
-  return { dueEmails, dueEngagement };
+  const dueTasks = taskCandidates.map((t) => ({
+    title: t.title,
+    businessName: t.lead?.businessName ?? null,
+    date: t.dueDate!,
+  }));
+
+  return { dueEmails, dueEngagement, dueTasks };
 }
 
 export function formatActionItemsForSlack(items: ActionItems): string | null {
-  if (items.dueEmails.length === 0 && items.dueEngagement.length === 0) return null;
+  if (items.dueEmails.length === 0 && items.dueEngagement.length === 0 && items.dueTasks.length === 0) {
+    return null;
+  }
 
   const lines: string[] = ["*Outreach portal — action needed*"];
 
@@ -71,6 +84,13 @@ export function formatActionItemsForSlack(items: ActionItems): string | null {
     lines.push("", `*Engagement check-ins (${items.dueEngagement.length}):*`);
     for (const e of items.dueEngagement) {
       lines.push(`• ${e.businessName} — ${e.platform} Day ${e.dayNumber} (${e.date})`);
+    }
+  }
+
+  if (items.dueTasks.length > 0) {
+    lines.push("", `*Tasks (${items.dueTasks.length}):*`);
+    for (const t of items.dueTasks) {
+      lines.push(`• ${t.title}${t.businessName ? ` — ${t.businessName}` : ""} (${t.date})`);
     }
   }
 

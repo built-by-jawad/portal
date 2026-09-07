@@ -379,3 +379,49 @@ export async function updateEngagementNote(dayId: string, leadId: string, formDa
   });
   revalidatePath(`/engagement/${leadId}`);
 }
+
+export async function createTask(formData: FormData) {
+  const title = str(formData, "title");
+  if (!title) throw new Error("Title is required");
+
+  await prisma.task.create({
+    data: {
+      title,
+      description: str(formData, "description"),
+      leadId: str(formData, "leadId"),
+      dueDate: str(formData, "dueDate"),
+      dueTime: str(formData, "dueTime"),
+    },
+  });
+
+  revalidatePath("/tasks");
+  redirect("/tasks");
+}
+
+export async function updateTask(id: string, formData: FormData) {
+  await prisma.task.update({
+    where: { id },
+    data: {
+      title: str(formData, "title") ?? undefined,
+      description: str(formData, "description"),
+      leadId: str(formData, "leadId"),
+      dueDate: str(formData, "dueDate"),
+      dueTime: str(formData, "dueTime"),
+    },
+  });
+  revalidatePath("/tasks");
+}
+
+export async function toggleTaskDone(id: string) {
+  const task = await prisma.task.findUniqueOrThrow({ where: { id } });
+  await prisma.task.update({
+    where: { id },
+    data: { completedAt: task.completedAt ? null : new Date() },
+  });
+  revalidatePath("/tasks");
+}
+
+export async function deleteTask(id: string) {
+  await prisma.task.delete({ where: { id } });
+  revalidatePath("/tasks");
+}

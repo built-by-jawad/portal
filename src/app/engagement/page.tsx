@@ -1,6 +1,8 @@
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import CalendarViewTabs from "@/components/CalendarViewTabs";
+import CalendarGrid, { type CalendarGridItem } from "@/components/CalendarGrid";
+import EngagementTodayCard from "@/components/EngagementTodayCard";
 import { prisma } from "@/lib/prisma";
 import { SOCIAL_PLATFORM_LABELS, ENGAGEMENT_DAYS, type SocialPlatform } from "@/lib/constants";
 import { todayInTimeZone, isInView, type CalendarView } from "@/lib/scheduling";
@@ -31,7 +33,11 @@ export default async function EngagementPage({
           title="Engagement"
           description="Leads you're warming up on social before outreach — 7-day check-in per platform."
         />
-        <CalendarLink />
+        <p className="mb-6 text-sm">
+          <Link href="/engagement?view=today" className="font-semibold text-green hover:underline">
+            View as calendar (today / week / month) →
+          </Link>
+        </p>
 
         {leads.length === 0 ? (
           <div className="rounded-xl border border-dashed border-mist/50 p-10 text-center text-sm text-slate">
@@ -80,25 +86,45 @@ export default async function EngagementPage({
     );
   }
 
-  // Calendar views: every EngagementDay across all leads, grouped by date, filtered to the range.
   const pakistanToday = todayInTimeZone(PAKISTAN_TZ);
-  const days = leads
-    .flatMap((lead) => lead.engagementDays.map((d) => ({ ...d, lead })))
-    .filter((d) => isInView(d.date, pakistanToday, view));
+  const allDays = leads.flatMap((lead) => lead.engagementDays.map((d) => ({ ...d, lead })));
 
-  const groups = new Map<string, typeof days>();
-  for (const d of days) {
-    const list = groups.get(d.date) ?? [];
-    list.push(d);
-    groups.set(d.date, list);
+  if (view !== "today") {
+    const gridItems: CalendarGridItem[] = allDays.map((d) => ({
+      id: d.id,
+      date: d.date,
+      sortKey: d.dayNumber,
+      title: `${d.lead.businessName} · ${SOCIAL_PLATFORM_LABELS[d.platform as SocialPlatform] ?? d.platform}`,
+      subtitle: `Day ${d.dayNumber}`,
+      href: `/engagement/${d.leadId}`,
+      accent: d.completedAt ? "slate" : "green",
+    }));
+    const viewCount = allDays.filter((d) => isInView(d.date, pakistanToday, view)).length;
+
+    return (
+      <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 md:py-10">
+        <PageHeader
+          title="Engagement Calendar"
+          description={`${viewCount} check-in${viewCount === 1 ? "" : "s"} ${view === "week" ? "this week" : "this month"}.`}
+        />
+        <CalendarViewTabs current={view} />
+        <p className="mb-4 text-sm">
+          <Link href="/engagement" className="font-semibold text-green hover:underline">
+            ← Card view
+          </Link>
+        </p>
+        <CalendarGrid view={view} todayStr={pakistanToday} items={gridItems} />
+      </div>
+    );
   }
-  const sortedDates = [...groups.keys()].sort();
+
+  const todaysDays = allDays.filter((d) => d.date === pakistanToday).sort((a, b) => a.dayNumber - b.dayNumber);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 md:py-10">
       <PageHeader
         title="Engagement Calendar"
-        description="Engagement check-ins due, by date."
+        description={`${todaysDays.length} check-in${todaysDays.length === 1 ? "" : "s"} due today.`}
       />
       <CalendarViewTabs current={view} />
       <p className="mb-4 text-sm">
@@ -107,57 +133,26 @@ export default async function EngagementPage({
         </Link>
       </p>
 
-      {sortedDates.length === 0 ? (
+      {todaysDays.length === 0 ? (
         <div className="rounded-xl border border-dashed border-mist/50 p-8 text-center text-sm text-slate">
-          Nothing due in this range.
+          Nothing due today.
         </div>
       ) : (
-        <div className="space-y-6">
-          {sortedDates.map((date) => (
-            <div key={date}>
-              <h2 className="font-display mb-2 text-sm font-bold text-ink">
-                {date}
-                {date === pakistanToday ? " · Today" : ""}
-              </h2>
-              <div className="overflow-hidden rounded-xl border border-mist/30 bg-white/60 shadow-sm">
-                <ul className="divide-y divide-mist/20">
-                  {groups.get(date)!.map((d) => (
-                    <li key={d.id}>
-                      <Link
-                        href={`/engagement/${d.leadId}`}
-                        className="flex items-center justify-between gap-2 px-4 py-3 text-sm hover:bg-paper"
-                      >
-                        <span>
-                          <span className="font-semibold text-ink">{d.lead.businessName}</span>{" "}
-                          <span className="text-slate">
-                            · {SOCIAL_PLATFORM_LABELS[d.platform as SocialPlatform] ?? d.platform} · Day{" "}
-                            {d.dayNumber}
-                          </span>
-                        </span>
-                        <span
-                          className={`text-xs font-semibold ${d.completedAt ? "text-green" : "text-slate"}`}
-                        >
-                          {d.completedAt ? "Done" : "Not yet"}
-                        </span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
+        <div className="space-y-4">
+          {todaysDays.map((d) => (
+            <EngagementTodayCard
+              key={d.id}
+              dayId={d.id}
+              leadId={d.leadId}
+              businessName={d.lead.businessName}
+              platform={d.platform}
+              dayNumber={d.dayNumber}
+              note={d.note}
+              completedAt={d.completedAt}
+            />
           ))}
         </div>
       )}
     </div>
-  );
-}
-
-function CalendarLink() {
-  return (
-    <p className="mb-6 text-sm">
-      <Link href="/engagement?view=today" className="font-semibold text-green hover:underline">
-        View as calendar (today / week / month) →
-      </Link>
-    </p>
   );
 }
