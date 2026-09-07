@@ -18,6 +18,9 @@ model Lead {
   businessName  String
   contactName   String?
   email         String?
+  // Extra email addresses for this lead beyond the primary `email` (e.g. a second contact) —
+  // reference/display only, sending and inbox scoping still use the primary `email` field.
+  secondaryEmails String[] @default([])
   phone         String?
   website       String?
   address       String?

@@ -1,5 +1,6 @@
 import { TRADES, TRADE_LABELS } from "@/lib/constants";
 import type { Lead } from "@prisma/client";
+import SecondaryEmailsField from "@/components/SecondaryEmailsField";
 
 export default function LeadFieldsSection({ lead }: { lead?: Lead }) {
   return (
@@ -13,6 +14,7 @@ export default function LeadFieldsSection({ lead }: { lead?: Lead }) {
           <Field label="Contact name" name="contactName" defaultValue={lead?.contactName ?? undefined} />
           <Field label="Email" name="email" type="email" defaultValue={lead?.email ?? undefined} />
           <Field label="Phone" name="phone" defaultValue={lead?.phone ?? undefined} />
+          <SecondaryEmailsField initial={lead?.secondaryEmails ?? []} />
           <Field label="Website" name="website" defaultValue={lead?.website ?? undefined} />
           <div>
             <label className="mb-1.5 block text-sm font-medium text-ink">Trade</label>

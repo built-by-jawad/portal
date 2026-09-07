@@ -24,6 +24,13 @@ function checked(formData: FormData, key: string): boolean {
   return formData.get(key) === "on" || formData.get(key) === "true";
 }
 
+function secondaryEmails(formData: FormData): string[] {
+  return formData
+    .getAll("secondaryEmails")
+    .map((v) => (typeof v === "string" ? v.trim() : ""))
+    .filter(Boolean);
+}
+
 export type DraftEmail = {
   hasSubject: boolean;
   subject: string;
@@ -86,6 +93,7 @@ export async function createLead(formData: FormData) {
       businessName,
       contactName: str(formData, "contactName"),
       email: str(formData, "email"),
+      secondaryEmails: secondaryEmails(formData),
       phone: str(formData, "phone"),
       website: str(formData, "website"),
       address,
@@ -120,6 +128,7 @@ export async function updateLead(id: string, formData: FormData) {
       businessName: str(formData, "businessName") ?? undefined,
       contactName: str(formData, "contactName"),
       email: str(formData, "email"),
+      secondaryEmails: secondaryEmails(formData),
       phone: str(formData, "phone"),
       website: str(formData, "website"),
       address: str(formData, "address"),

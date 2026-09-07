@@ -32,6 +32,15 @@ export function scheduledToUtc(
   }
 }
 
+// The current date (YYYY-MM-DD) as seen from inside a given timezone — used to decide whether a
+// scheduledDate counts as "today" for that record's own timezone rather than the server's.
+export function todayInTimeZone(timeZone: string, now: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone, dateStyle: "short" })
+    .format(now)
+    .split("-");
+  return parts.length === 3 ? parts.join("-") : now.toISOString().slice(0, 10);
+}
+
 export function isDue(dateStr: string | null, timeStr: string | null, timeZone: string | null, now: Date) {
   if (!dateStr) return false;
   const due = scheduledToUtc(dateStr, timeStr || "09:00", timeZone || "UTC");
