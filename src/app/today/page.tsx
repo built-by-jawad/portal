@@ -81,6 +81,7 @@ export default async function TodayPage() {
               </div>
 
               <div className="space-y-3">
+                {step.lead.email && <CopyBox label="To" text={step.lead.email} />}
                 {step.hasSubject && <CopyBox label="Subject" text={step.subject} />}
                 <CopyBox label="Body" text={step.body} />
               </div>
