@@ -7,6 +7,17 @@ import { scheduledToUtc, todayInTimeZone } from "@/lib/scheduling";
 
 export const dynamic = "force-dynamic";
 
+const PAKISTAN_TZ = "Asia/Karachi";
+
+function formatInPakistanTime(instant: number) {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: PAKISTAN_TZ,
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(new Date(instant));
+}
+
 export default async function TodayPage() {
   const candidates = await prisma.emailStepRecord.findMany({
     where: {
@@ -33,7 +44,7 @@ export default async function TodayPage() {
     <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 md:py-10">
       <PageHeader
         title="Today's Outreach"
-        description={`${todays.length} email${todays.length === 1 ? "" : "s"} scheduled for today, in send order.`}
+        description={`${todays.length} email${todays.length === 1 ? "" : "s"} scheduled for today, in send order — times shown in Pakistan time (PKT).`}
       />
 
       {todays.length === 0 ? (
@@ -56,10 +67,16 @@ export default async function TodayPage() {
                     {emailStepLabel(step.order)} · to {step.lead.email ?? "no email on file"}
                   </p>
                 </div>
-                <span className="rounded-full bg-ink px-3 py-1 text-xs font-semibold text-paper">
-                  {step.scheduledTime || "—"}
-                  {step.scheduledTimezone ? ` (${step.scheduledTimezone})` : ""}
-                </span>
+                <div className="text-right">
+                  <span className="rounded-full bg-ink px-3 py-1 text-xs font-semibold text-paper">
+                    {formatInPakistanTime(step.sortInstant)} PKT
+                  </span>
+                  {step.scheduledTimezone && step.scheduledTimezone !== PAKISTAN_TZ && (
+                    <p className="mt-1 text-xs text-slate">
+                      {step.scheduledTime || "—"} their time ({step.scheduledTimezone})
+                    </p>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-3">
