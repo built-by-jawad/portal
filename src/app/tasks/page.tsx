@@ -1,5 +1,6 @@
 import PageHeader from "@/components/PageHeader";
 import TaskViewTabs from "@/components/TaskViewTabs";
+import TaskImportExportBar from "@/components/TaskImportExportBar";
 import TaskCard from "@/components/TaskCard";
 import CalendarGrid, { type CalendarGridItem } from "@/components/CalendarGrid";
 import { prisma } from "@/lib/prisma";
@@ -29,7 +30,11 @@ export default async function TasksPage({
 
     return (
       <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 md:py-10">
-        <PageHeader title="Tasks" description={`${doneTasks.length} completed task${doneTasks.length === 1 ? "" : "s"}.`} />
+        <PageHeader
+          title="Tasks"
+          description={`${doneTasks.length} completed task${doneTasks.length === 1 ? "" : "s"}.`}
+          action={<TaskImportExportBar />}
+        />
         <TaskViewTabs current={view} />
 
         {doneTasks.length === 0 ? (
@@ -81,6 +86,7 @@ export default async function TasksPage({
         <PageHeader
           title="Tasks"
           description={`${viewCount} task${viewCount === 1 ? "" : "s"} due ${view === "week" ? "this week" : "this month"}.`}
+          action={<TaskImportExportBar />}
         />
         <TaskViewTabs current={view} />
         <CalendarGrid view={view} todayStr={pakistanToday} items={gridItems} />
@@ -95,7 +101,7 @@ export default async function TasksPage({
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 md:py-10">
-      <PageHeader title="Tasks" description={`${todaysTasks.length} due today.`} />
+      <PageHeader title="Tasks" description={`${todaysTasks.length} due today.`} action={<TaskImportExportBar />} />
       <TaskViewTabs current="today" />
 
       {overdueTasks.length > 0 && (
