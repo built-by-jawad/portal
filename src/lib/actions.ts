@@ -423,3 +423,31 @@ export async function deleteTask(id: string) {
   await prisma.task.delete({ where: { id } });
   revalidatePath("/tasks");
 }
+
+// Single-task edit page's form submits here, then bounces back to the list — same update logic as
+// the inline bulk-edit rows use, just with a redirect since this is a full-page form.
+export async function saveTaskEdit(id: string, formData: FormData) {
+  await updateTask(id, formData);
+  redirect("/tasks");
+}
+
+export async function bulkUpdateTasks(
+  ids: string[],
+  patch: { leadId?: string | null; dueDate?: string | null; markDone?: boolean }
+) {
+  if (ids.length === 0) return;
+
+  const data: { leadId?: string | null; dueDate?: string | null; completedAt?: Date | null } = {};
+  if (patch.leadId !== undefined) data.leadId = patch.leadId || null;
+  if (patch.dueDate !== undefined) data.dueDate = patch.dueDate || null;
+  if (patch.markDone !== undefined) data.completedAt = patch.markDone ? new Date() : null;
+
+  await prisma.task.updateMany({ where: { id: { in: ids } }, data });
+  revalidatePath("/tasks");
+}
+
+export async function bulkDeleteTasks(ids: string[]) {
+  if (ids.length === 0) return;
+  await prisma.task.deleteMany({ where: { id: { in: ids } } });
+  revalidatePath("/tasks");
+}

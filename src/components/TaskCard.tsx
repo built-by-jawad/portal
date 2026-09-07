@@ -54,6 +54,12 @@ export default function TaskCard({
           )}
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          <Link
+            href={`/tasks/${id}/edit`}
+            className="rounded-lg border border-mist/40 px-2.5 py-1.5 text-xs font-semibold text-ink transition hover:bg-mist/10"
+          >
+            Edit
+          </Link>
           <button
             type="button"
             disabled={isPending}
