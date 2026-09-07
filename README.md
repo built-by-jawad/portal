@@ -37,6 +37,7 @@ Local dev and production currently point at the **same Supabase database** — t
   - **Bulk Edit** (`/tasks/bulk-edit`) — every task in one editable table (inline title/client/due-date/done, per-row Edit/Delete), plus a selection toolbar for acting on multiple rows at once (set client, set due date, mark done, delete).
   - **Import CSV** / **Export CSV** (`/api/tasks/import`, `/api/tasks/export` — columns: `title,description,client,dueDate,completed`; `client` is matched to an existing lead by business name, case-insensitive, and left blank/general if no match).
 - **Engagement** (`/engagement`) — one card per lead marked active on a social platform (Instagram/Facebook/LinkedIn, set on the lead form), showing a progress bar toward a 7-day "warm engagement" checklist per platform. Click a card to open `/engagement/[id]`, where each platform gets a 7-day checklist you check off day by day with an optional note. Also has its own Today (detailed cards)/Week/Month (grid) calendar view (`?view=`) listing check-ins due across every lead.
+- **Scripts** (`/scripts`) — saved content scripts (call scripts, reel scripts, email scripts, etc.): title, optional category, and the script body. Card grid, click a card to open the full script on its own page (`/scripts/[id]`) with a copy-to-clipboard box, Edit, and Delete.
 - **Settings** (`/settings`) — connect any number of Gmail accounts, mark one as the default (used for leads with no account explicitly chosen), and disconnect any of them.
 
 There is no templates page — every email is written directly on the lead, from scratch.
@@ -76,6 +77,7 @@ Checking a platform (Instagram/Facebook/LinkedIn) on a lead's Business details s
 - `EmailAccount` — a connected Gmail account (replaces the old single-account `GoogleAuth` table): OAuth tokens, `isDefault`, `email` (unique). Multiple can be connected at once; each `Lead` picks one via `sendAccountId`.
 - `EngagementDay` — one row per day (1–7) of a lead's warm-engagement checklist on one platform: `date`, `note`, `completedAt`. Unique on `(leadId, platform, dayNumber)`.
 - `Task` — a to-do: `title`, `description`, optional `leadId` ("which client this is for"), `dueDate` (plain YYYY-MM-DD string, date only — no time field), `completedAt`. No fixed relation to anything else — plain standalone tasks.
+- `Script` — a saved content script: `title`, optional `category`, `content`. No relations — standalone, not tied to a lead.
 
 `status` and `trade` are plain strings (not Postgres enums) validated against the lists in `src/lib/constants.ts` — this schema started on SQLite (no enum support) and there was no reason to churn it when moving to Postgres.
 

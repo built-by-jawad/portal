@@ -451,3 +451,41 @@ export async function bulkDeleteTasks(ids: string[]) {
   await prisma.task.deleteMany({ where: { id: { in: ids } } });
   revalidatePath("/tasks");
 }
+
+export async function createScript(formData: FormData) {
+  const title = str(formData, "title");
+  const content = str(formData, "content");
+  if (!title) throw new Error("Title is required");
+  if (!content) throw new Error("Content is required");
+
+  const script = await prisma.script.create({
+    data: { title, content, category: str(formData, "category") },
+  });
+
+  revalidatePath("/scripts");
+  redirect(`/scripts/${script.id}`);
+}
+
+export async function updateScript(id: string, formData: FormData) {
+  const content = str(formData, "content");
+  if (!content) throw new Error("Content is required");
+
+  await prisma.script.update({
+    where: { id },
+    data: {
+      title: str(formData, "title") ?? undefined,
+      category: str(formData, "category"),
+      content,
+    },
+  });
+
+  revalidatePath("/scripts");
+  revalidatePath(`/scripts/${id}`);
+  redirect(`/scripts/${id}`);
+}
+
+export async function deleteScript(id: string) {
+  await prisma.script.delete({ where: { id } });
+  revalidatePath("/scripts");
+  redirect("/scripts");
+}

@@ -160,3 +160,15 @@ model Task {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 }
+
+// A stored content script (call script, video/reel script, email script, etc.) — free-text title,
+// optional category label, and the script body itself. Shown as a card grid on /scripts; clicking
+// a card opens the full script on its own page (/scripts/[id]).
+model Script {
+  id        String   @id @default(cuid())
+  title     String
+  category  String?
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
