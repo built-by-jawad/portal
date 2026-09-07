@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { toCsvRow } from "@/lib/csv";
 
-const HEADERS = ["title", "description", "client", "dueDate", "dueTime", "completed"];
+const HEADERS = ["title", "description", "client", "dueDate", "completed"];
 
 export async function GET() {
   const tasks = await prisma.task.findMany({
@@ -18,7 +18,6 @@ export async function GET() {
         t.description ?? "",
         t.lead?.businessName ?? "",
         t.dueDate ?? "",
-        t.dueTime ?? "",
         t.completedAt ? "true" : "false",
       ])
     ),

@@ -12,8 +12,8 @@ type Props = {
   leadId: string | null;
   leadBusinessName: string | null;
   dueDate: string | null;
-  dueTime: string | null;
   completedAt: Date | null;
+  overdue?: boolean;
 };
 
 export default function TaskCard({
@@ -23,22 +23,33 @@ export default function TaskCard({
   leadId,
   leadBusinessName,
   dueDate,
-  dueTime,
   completedAt,
+  overdue,
 }: Props) {
   const [isPending, startTransition] = useTransition();
   const notify = useToast();
 
   return (
-    <div className="rounded-xl border border-mist/30 bg-white/60 p-4 shadow-sm sm:p-6">
+    <div
+      className={`rounded-xl border p-4 shadow-sm transition sm:p-6 ${
+        overdue
+          ? "border-red-300 bg-red-50/60 hover:bg-red-50"
+          : "border-mist/30 bg-white/60"
+      }`}
+    >
       <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
         <div>
-          <p className={`font-display font-bold ${completedAt ? "text-slate line-through" : "text-ink"}`}>
+          <p
+            className={`font-display font-bold ${
+              completedAt ? "text-slate line-through" : overdue ? "text-red-700" : "text-ink"
+            }`}
+          >
             {title}
           </p>
-          {(dueDate || dueTime) && (
-            <p className="text-xs text-slate">
-              Due {dueDate || "—"} {dueTime || ""}
+          {dueDate && (
+            <p className={`text-xs ${overdue ? "font-semibold text-red-600" : "text-slate"}`}>
+              Due {dueDate}
+              {overdue ? " · Overdue" : ""}
             </p>
           )}
         </div>

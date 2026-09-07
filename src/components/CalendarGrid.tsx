@@ -8,7 +8,7 @@ export type CalendarGridItem = {
   title: string;
   subtitle?: string;
   href: string;
-  accent?: "green" | "ink" | "slate";
+  accent?: "green" | "ink" | "slate" | "red";
 };
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -18,6 +18,7 @@ const ACCENT_CLASSES: Record<NonNullable<CalendarGridItem["accent"]>, string> = 
   green: "bg-green/15 text-green",
   ink: "bg-ink/10 text-ink",
   slate: "bg-mist/20 text-ink",
+  red: "bg-red-100 text-red-700 hover:bg-red-200",
 };
 
 // Google-Calendar-shaped grid for the "week" and "month" calendar views — a real Sun–Sat week or

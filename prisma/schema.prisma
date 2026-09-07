@@ -145,9 +145,10 @@ model EmailAccount {
   leads Lead[]
 }
 
-// A to-do item, optionally tied to a lead ("which client this is for"). dueDate/dueTime are plain
-// strings like the email scheduling fields, entered by hand, shown on the /tasks calendar.
-// completedAt is set when marked done — done tasks stay in the Done view, not deleted.
+// A to-do item, optionally tied to a lead ("which client this is for"). dueDate is a plain
+// YYYY-MM-DD string like the email scheduling fields, entered by hand, shown on the /tasks
+// calendar — date-only, no time of day. completedAt is set when marked done — done tasks stay in
+// the Done view, not deleted.
 model Task {
   id          String    @id @default(cuid())
   title       String
@@ -155,7 +156,6 @@ model Task {
   leadId      String?
   lead        Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
   dueDate     String?
-  dueTime     String?
   completedAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

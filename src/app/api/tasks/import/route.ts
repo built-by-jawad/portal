@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { parseCsv } from "@/lib/csv";
 import { revalidatePath } from "next/cache";
 
-// Expects the same columns /api/tasks/export produces: title,description,client,dueDate,dueTime,completed
+// Expects the same columns /api/tasks/export produces: title,description,client,dueDate,completed
 // "client" is matched case-insensitively against existing lead business names — unmatched or blank
 // stays a general task (leadId null) rather than failing the whole import.
 export async function POST(request: NextRequest) {
@@ -29,7 +29,6 @@ export async function POST(request: NextRequest) {
   const descCol = col("description");
   const clientCol = col("client");
   const dueDateCol = col("duedate");
-  const dueTimeCol = col("duetime");
   const completedCol = col("completed");
 
   const leads = await prisma.lead.findMany({ select: { id: true, businessName: true } });
@@ -52,7 +51,6 @@ export async function POST(request: NextRequest) {
         description: descCol !== -1 ? row[descCol]?.trim() || null : null,
         leadId,
         dueDate: dueDateCol !== -1 ? row[dueDateCol]?.trim() || null : null,
-        dueTime: dueTimeCol !== -1 ? row[dueTimeCol]?.trim() || null : null,
         completedAt: completed ? new Date() : null,
       },
     });

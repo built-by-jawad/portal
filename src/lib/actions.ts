@@ -390,7 +390,6 @@ export async function createTask(formData: FormData) {
       description: str(formData, "description"),
       leadId: str(formData, "leadId"),
       dueDate: str(formData, "dueDate"),
-      dueTime: str(formData, "dueTime"),
     },
   });
 
@@ -406,7 +405,6 @@ export async function updateTask(id: string, formData: FormData) {
       description: str(formData, "description"),
       leadId: str(formData, "leadId"),
       dueDate: str(formData, "dueDate"),
-      dueTime: str(formData, "dueTime"),
     },
   });
   revalidatePath("/tasks");
