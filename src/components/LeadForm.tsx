@@ -1,5 +1,8 @@
+"use client";
+
 import type { Lead } from "@prisma/client";
 import LeadFieldsSection from "@/components/LeadFieldsSection";
+import { useToast } from "@/components/ToastProvider";
 
 export default function LeadForm({
   action,
@@ -10,8 +13,15 @@ export default function LeadForm({
   lead?: Lead;
   submitLabel: string;
 }) {
+  const notify = useToast();
+
+  async function handleSubmit(formData: FormData) {
+    await action(formData);
+    notify("Saved");
+  }
+
   return (
-    <form action={action} className="space-y-6">
+    <form action={handleSubmit} className="space-y-6">
       <LeadFieldsSection lead={lead} />
 
       <button

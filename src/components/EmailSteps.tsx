@@ -11,6 +11,7 @@ import {
   sendEmailNow,
 } from "@/lib/actions";
 import AttachmentsUploader from "@/components/AttachmentsUploader";
+import { useToast } from "@/components/ToastProvider";
 
 type Attachment = { id: string; filename: string; url: string; size: number };
 
@@ -57,6 +58,7 @@ export default function EmailSteps({
   const [isPending, startTransition] = useTransition();
   const [sendError, setSendError] = useState<string | null>(null);
   const [sendAccountId, setSendAccountId] = useState<string | undefined>(effectiveAccountId);
+  const notify = useToast();
 
   const current = sorted.find((r) => r.id === activeId) ?? sorted[0];
   const [subjectEnabled, setSubjectEnabled] = useState(current?.hasSubject ?? true);
@@ -75,9 +77,17 @@ export default function EmailSteps({
     startTransition(async () => {
       try {
         await sendEmailNow(leadId, current.id, sendAccountId);
+        notify("Email sent");
       } catch (err) {
         setSendError(err instanceof Error ? err.message : "Failed to send email");
       }
+    });
+  }
+
+  function handleSave(formData: FormData) {
+    startTransition(async () => {
+      await updateEmailStep(current.id, formData);
+      notify("Saved");
     });
   }
 
@@ -104,6 +114,7 @@ export default function EmailSteps({
           onClick={() =>
             startTransition(async () => {
               await addFollowup(leadId);
+              notify("Follow-up added");
             })
           }
           className="flex items-center gap-1 rounded-lg border border-dashed border-mist/50 px-3 py-2 text-xs font-semibold text-slate transition hover:border-green hover:text-green disabled:opacity-50"
@@ -179,7 +190,12 @@ export default function EmailSteps({
                 <button
                   type="button"
                   disabled={isPending}
-                  onClick={() => startTransition(() => unmarkEmailSent(leadId, current.id))}
+                  onClick={() =>
+                    startTransition(async () => {
+                      await unmarkEmailSent(leadId, current.id);
+                      notify("Unmarked");
+                    })
+                  }
                   className="rounded-lg border border-mist/40 px-3 py-1.5 text-xs font-semibold text-ink transition hover:bg-mist/10 disabled:opacity-50"
                 >
                   Unmark sent
@@ -188,7 +204,12 @@ export default function EmailSteps({
                 <button
                   type="button"
                   disabled={isPending}
-                  onClick={() => startTransition(() => markEmailSent(leadId, current.id))}
+                  onClick={() =>
+                    startTransition(async () => {
+                      await markEmailSent(leadId, current.id);
+                      notify("Marked as sent");
+                    })
+                  }
                   className="rounded-lg border border-mist/40 px-3 py-1.5 text-xs font-semibold text-ink transition hover:bg-mist/10 disabled:opacity-50"
                 >
                   Mark as sent manually
@@ -202,7 +223,10 @@ export default function EmailSteps({
                     if (confirm(`Remove ${emailStepLabel(current.order)}?`)) {
                       const remaining = sorted.filter((r) => r.id !== current.id);
                       setActiveId(remaining[remaining.length - 1]?.id);
-                      startTransition(() => removeEmailStep(leadId, current.id));
+                      startTransition(async () => {
+                        await removeEmailStep(leadId, current.id);
+                        notify("Removed");
+                      });
                     }
                   }}
                   className="rounded-lg border border-red-300 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
@@ -227,11 +251,7 @@ export default function EmailSteps({
             <p className="mb-4 text-xs text-slate">Add an email address to this lead to send via Gmail.</p>
           )}
 
-          <form
-            key={current.id}
-            action={(formData) => updateEmailStep(current.id, formData)}
-            className="space-y-3"
-          >
+          <form key={current.id} action={handleSave} className="space-y-3">
             <label className="flex items-center gap-2 text-sm font-medium text-ink">
               <input
                 type="checkbox"

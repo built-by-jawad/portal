@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { deleteAttachment } from "@/lib/actions";
+import { useToast } from "@/components/ToastProvider";
 
 type Attachment = { id: string; filename: string; url: string; size: number };
 
@@ -24,6 +25,7 @@ export default function AttachmentsUploader({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+  const notify = useToast();
 
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
@@ -41,6 +43,7 @@ export default function AttachmentsUploader({
           throw new Error(body.error || "Upload failed");
         }
       }
+      notify(files.length > 1 ? "Files attached" : "File attached");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {
@@ -70,7 +73,12 @@ export default function AttachmentsUploader({
                 <span className="text-slate">{formatSize(a.size)}</span>
                 <button
                   type="button"
-                  onClick={() => startTransition(() => deleteAttachment(leadId, a.id))}
+                  onClick={() =>
+                    startTransition(async () => {
+                      await deleteAttachment(leadId, a.id);
+                      notify("Attachment removed");
+                    })
+                  }
                   className="font-semibold text-red-600 hover:underline"
                 >
                   Remove
