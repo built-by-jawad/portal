@@ -51,3 +51,41 @@ h4,
   background: var(--color-mist);
   border-radius: 999px;
 }
+
+/* Every clickable control gets a pointer cursor on hover, and a quick press-down effect on click
+   so it's visibly registering the click — applied globally instead of per-component so nothing
+   new (a future button, a link) is ever missed. */
+a,
+button,
+select,
+summary,
+[role="button"],
+input[type="checkbox"],
+input[type="radio"],
+input[type="submit"],
+input[type="file"]::file-selector-button,
+label:has(> input[type="checkbox"]),
+label:has(> input[type="radio"]) {
+  cursor: pointer;
+}
+
+a,
+button,
+[role="button"],
+summary {
+  transition: transform 0.1s ease, opacity 0.1s ease;
+}
+
+a:active,
+button:not(:disabled):active,
+[role="button"]:active,
+summary:active {
+  transform: scale(0.96);
+  opacity: 0.9;
+}
+
+button:disabled,
+[aria-disabled="true"],
+a[aria-disabled="true"] {
+  cursor: not-allowed;
+}
