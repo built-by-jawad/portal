@@ -40,6 +40,20 @@ model Lead {
   emails          EmailStepRecord[]
   engagementDays  EngagementDay[]
   tasks           Task[]
+  files           LeadFile[]
+}
+
+// Files (screenshots, PDFs, etc.) attached directly to a lead, separate from email attachments —
+// stored in the same Vercel Blob store under a leads/ prefix.
+model LeadFile {
+  id          String   @id @default(cuid())
+  leadId      String
+  lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  filename    String
+  url         String
+  size        Int
+  contentType String
+  createdAt   DateTime @default(now())
 }
 
 // One row per day of a 7-day "warm engagement" checklist for one lead on one platform (day 1..7).

@@ -10,6 +10,7 @@ import DeleteLeadButton from "@/components/DeleteLeadButton";
 import LeadInbox from "@/components/LeadInbox";
 import LeadSendAccountSelect from "@/components/LeadSendAccountSelect";
 import CheckRepliesButton from "@/components/CheckRepliesButton";
+import LeadFiles from "@/components/LeadFiles";
 import { updateLead } from "@/lib/actions";
 import { getDefaultAccountId, listEmailAccounts } from "@/lib/google";
 
@@ -23,7 +24,10 @@ export default async function LeadDetailPage({
   const [lead, accounts, defaultAccountId] = await Promise.all([
     prisma.lead.findUnique({
       where: { id },
-      include: { emails: { include: { attachments: true }, orderBy: { order: "asc" } } },
+      include: {
+        emails: { include: { attachments: true }, orderBy: { order: "asc" } },
+        files: { orderBy: { createdAt: "desc" } },
+      },
     }),
     listEmailAccounts(),
     getDefaultAccountId(),
@@ -85,6 +89,10 @@ export default async function LeadDetailPage({
           </Suspense>
         </div>
       )}
+
+      <div className="mb-10">
+        <LeadFiles leadId={lead.id} files={lead.files} />
+      </div>
 
       <div>
         <h2 className="font-display mb-4 text-lg font-bold text-ink">Business details</h2>
