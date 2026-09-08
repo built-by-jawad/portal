@@ -24,6 +24,8 @@ export default function LeadFiles({ leadId, files }: { leadId: string; files: Le
   const [items, setItems] = useState(files);
   const [uploading, setUploading] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const notify = useToast();
 
@@ -80,6 +82,33 @@ export default function LeadFiles({ leadId, files }: { leadId: string; files: Le
     }
   }
 
+  function startRename(f: LeadFile) {
+    setRenamingId(f.id);
+    setRenameValue(f.filename);
+  }
+
+  function saveRename(fileId: string) {
+    const filename = renameValue.trim();
+    if (!filename) {
+      setRenamingId(null);
+      return;
+    }
+    startTransition(async () => {
+      const res = await fetch(`/api/leads/${leadId}/files/${fileId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename }),
+      });
+      if (res.ok) {
+        setItems((prev) => prev.map((f) => (f.id === fileId ? { ...f, filename } : f)));
+        notify("Renamed");
+      } else {
+        notify("Failed to rename");
+      }
+      setRenamingId(null);
+    });
+  }
+
   function handleDelete(fileId: string, filename: string) {
     if (!confirm(`Delete "${filename}"?`)) return;
     startTransition(async () => {
@@ -120,16 +149,40 @@ export default function LeadFiles({ leadId, files }: { leadId: string; files: Le
         <ul className="divide-y divide-mist/20 rounded-xl border border-mist/30 bg-white/60 shadow-sm">
           {items.map((f) => (
             <li key={f.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
-              <a
-                href={f.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="min-w-0 flex-1 truncate text-sm font-medium text-ink hover:underline"
-                title={f.filename}
-              >
-                {f.filename}
-              </a>
+              {renamingId === f.id ? (
+                <input
+                  autoFocus
+                  value={renameValue}
+                  onChange={(e) => setRenameValue(e.target.value)}
+                  onBlur={() => saveRename(f.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveRename(f.id);
+                    if (e.key === "Escape") setRenamingId(null);
+                  }}
+                  className="min-w-0 flex-1 rounded-lg border border-mist/40 bg-white px-2 py-1 text-sm text-ink focus:border-green focus:outline-none"
+                />
+              ) : (
+                <a
+                  href={f.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="min-w-0 flex-1 truncate text-sm font-medium text-ink hover:underline"
+                  title={f.filename}
+                >
+                  {f.filename}
+                </a>
+              )}
               <span className="shrink-0 text-xs text-slate">{formatSize(f.size)}</span>
+              {renamingId !== f.id && (
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => startRename(f)}
+                  className="shrink-0 text-xs font-semibold text-ink hover:underline disabled:opacity-50"
+                >
+                  Rename
+                </button>
+              )}
               <button
                 type="button"
                 disabled={isPending}

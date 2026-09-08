@@ -3,6 +3,26 @@ import { del } from "@vercel/blob";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string; fileId: string }> }
+) {
+  const { id: leadId, fileId } = await params;
+  const { filename } = await request.json();
+
+  if (typeof filename !== "string" || !filename.trim()) {
+    return NextResponse.json({ error: "Missing filename" }, { status: 400 });
+  }
+
+  const file = await prisma.leadFile.update({
+    where: { id: fileId },
+    data: { filename: filename.trim() },
+  });
+
+  revalidatePath(`/leads/${leadId}`);
+  return NextResponse.json({ file });
+}
+
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string; fileId: string }> }
