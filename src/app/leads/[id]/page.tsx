@@ -3,15 +3,13 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import PageHeader from "@/components/PageHeader";
-import LeadForm from "@/components/LeadForm";
+import LeadWorkspace from "@/components/LeadWorkspace";
 import StatusSelect from "@/components/StatusSelect";
-import EmailSteps from "@/components/EmailSteps";
 import DeleteLeadButton from "@/components/DeleteLeadButton";
 import LeadInbox from "@/components/LeadInbox";
 import LeadSendAccountSelect from "@/components/LeadSendAccountSelect";
 import CheckRepliesButton from "@/components/CheckRepliesButton";
 import LeadFiles from "@/components/LeadFiles";
-import { updateLead } from "@/lib/actions";
 import { getDefaultAccountId, listEmailAccounts } from "@/lib/google";
 
 export default async function LeadDetailPage({
@@ -35,7 +33,6 @@ export default async function LeadDetailPage({
 
   if (!lead) notFound();
 
-  const boundUpdate = updateLead.bind(null, lead.id);
   const inboxAccountId = lead.sendAccountId || defaultAccountId;
 
   return (
@@ -62,17 +59,6 @@ export default async function LeadDetailPage({
         <CheckRepliesButton leadId={lead.id} />
       </div>
 
-      <div className="mb-10">
-        <h2 className="font-display mb-4 text-lg font-bold text-ink">Emails</h2>
-        <EmailSteps
-          leadId={lead.id}
-          leadEmail={lead.email}
-          accounts={accounts}
-          leadSendAccountId={lead.sendAccountId}
-          records={lead.emails}
-        />
-      </div>
-
       {inboxAccountId && lead.email && (
         <div className="mb-10">
           <h2 className="font-display mb-4 text-lg font-bold text-ink">
@@ -94,10 +80,14 @@ export default async function LeadDetailPage({
         <LeadFiles leadId={lead.id} files={lead.files} />
       </div>
 
-      <div>
-        <h2 className="font-display mb-4 text-lg font-bold text-ink">Business details</h2>
-        <LeadForm action={boundUpdate} lead={lead} submitLabel="Save changes" />
-      </div>
+      <LeadWorkspace
+        lead={lead}
+        leadId={lead.id}
+        leadEmail={lead.email}
+        accounts={accounts}
+        leadSendAccountId={lead.sendAccountId}
+        records={lead.emails}
+      />
     </div>
   );
 }
