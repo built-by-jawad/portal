@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useToast } from "@/components/ToastProvider";
 
 type LeadFile = {
@@ -26,6 +26,37 @@ export default function LeadFiles({ leadId, files }: { leadId: string; files: Le
   const [isPending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
   const notify = useToast();
+
+  useEffect(() => {
+    function handlePaste(e: ClipboardEvent) {
+      const target = e.target as HTMLElement | null;
+      const isEditable =
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.isContentEditable;
+      if (isEditable) return;
+
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      const files: File[] = [];
+      for (const item of items) {
+        if (item.kind === "file") {
+          const file = item.getAsFile();
+          if (file) files.push(file);
+        }
+      }
+      if (files.length === 0) return;
+
+      e.preventDefault();
+      const dt = new DataTransfer();
+      files.forEach((f) => dt.items.add(f));
+      handleFiles(dt.files);
+    }
+
+    document.addEventListener("paste", handlePaste);
+    return () => document.removeEventListener("paste", handlePaste);
+  }, []);
 
   async function handleFiles(fileList: FileList | null) {
     if (!fileList || fileList.length === 0) return;
@@ -78,6 +109,8 @@ export default function LeadFiles({ leadId, files }: { leadId: string; files: Le
           />
         </label>
       </div>
+
+      <p className="mb-3 text-xs text-slate">Tip: copy a screenshot, then press Ctrl+V anywhere on this page to upload it.</p>
 
       {items.length === 0 ? (
         <div className="rounded-xl border border-dashed border-mist/50 p-6 text-center text-sm text-slate">
