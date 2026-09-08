@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { emailStepLabel, TIMEZONES } from "@/lib/constants";
 import {
   markEmailSent,
@@ -36,6 +36,17 @@ type StepRecord = {
 
 type EmailAccountOption = { id: string; email: string; isDefault: boolean };
 
+type DraftFields = {
+  hasSubject: boolean;
+  subject: string;
+  body: string;
+  threadMode: string;
+  condition: string;
+  scheduledDate: string;
+  scheduledTime: string;
+  scheduledTimezone: string;
+};
+
 export default function EmailSteps({
   leadId,
   leadEmail,
@@ -60,17 +71,51 @@ export default function EmailSteps({
   const [sendAccountId, setSendAccountId] = useState<string | undefined>(effectiveAccountId);
   const notify = useToast();
 
+  // Unsaved edits per tab, keyed by record id, kept in memory so switching tabs (or adding a
+  // follow-up, which remounts nothing but does refresh server data) never throws away text you
+  // haven't hit Save on yet — you can edit every tab and only save the ones you're done with.
+  const [drafts, setDrafts] = useState<Record<string, DraftFields>>({});
+  const formRef = useRef<HTMLFormElement>(null);
+
   const current = sorted.find((r) => r.id === activeId) ?? sorted[0];
-  const [subjectEnabled, setSubjectEnabled] = useState(current?.hasSubject ?? true);
+  const draft = current ? drafts[current.id] : undefined;
+  const [subjectEnabled, setSubjectEnabled] = useState(draft?.hasSubject ?? current?.hasSubject ?? true);
   const [attachmentsEnabled, setAttachmentsEnabled] = useState(
     (current?.attachments.length ?? 0) > 0
   );
 
   useEffect(() => {
-    setSubjectEnabled(current?.hasSubject ?? true);
+    const d = current ? drafts[current.id] : undefined;
+    setSubjectEnabled(d?.hasSubject ?? current?.hasSubject ?? true);
     setAttachmentsEnabled((current?.attachments.length ?? 0) > 0);
     setSendError(null);
-  }, [current?.id, current?.hasSubject, current?.attachments.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current?.id]);
+
+  // Captures whatever's currently in the form (plus the subject/attachments toggles) into the
+  // drafts map before we do anything that could remount or refresh this tab's form.
+  function captureDraft() {
+    if (!current || !formRef.current) return;
+    const fd = new FormData(formRef.current);
+    setDrafts((prev) => ({
+      ...prev,
+      [current.id]: {
+        hasSubject: subjectEnabled,
+        subject: fd.get("subject")?.toString() ?? "",
+        body: fd.get("body")?.toString() ?? "",
+        threadMode: fd.get("threadMode")?.toString() ?? current.threadMode,
+        condition: fd.get("condition")?.toString() ?? current.condition,
+        scheduledDate: fd.get("scheduledDate")?.toString() ?? "",
+        scheduledTime: fd.get("scheduledTime")?.toString() ?? "",
+        scheduledTimezone: fd.get("scheduledTimezone")?.toString() ?? "",
+      },
+    }));
+  }
+
+  function switchTab(id: string) {
+    captureDraft();
+    setActiveId(id);
+  }
 
   function handleSend() {
     setSendError(null);
@@ -85,8 +130,15 @@ export default function EmailSteps({
   }
 
   function handleSave(formData: FormData) {
+    const savedId = current.id;
     startTransition(async () => {
-      const result = await updateEmailStep(current.id, formData);
+      const result = await updateEmailStep(savedId, formData);
+      setDrafts((prev) => {
+        if (!(savedId in prev)) return prev;
+        const next = { ...prev };
+        delete next[savedId];
+        return next;
+      });
       notify(
         result?.adjusted
           ? "Saved — time shifted to avoid overlapping another send on this account"
@@ -101,7 +153,7 @@ export default function EmailSteps({
         {sorted.map((rec) => (
           <button
             key={rec.id}
-            onClick={() => setActiveId(rec.id)}
+            onClick={() => switchTab(rec.id)}
             className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition ${
               current?.id === rec.id
                 ? "bg-ink text-paper"
@@ -110,17 +162,21 @@ export default function EmailSteps({
           >
             {emailStepLabel(rec.order)}
             {rec.sentAt && <span className="text-green">✓</span>}
+            {!rec.sentAt && drafts[rec.id] && (
+              <span title="Unsaved changes" className="text-amber-500">●</span>
+            )}
           </button>
         ))}
         <button
           type="button"
           disabled={isPending}
-          onClick={() =>
+          onClick={() => {
+            captureDraft();
             startTransition(async () => {
               await addFollowup(leadId);
               notify("Follow-up added");
-            })
-          }
+            });
+          }}
           className="flex items-center gap-1 rounded-lg border border-dashed border-mist/50 px-3 py-2 text-xs font-semibold text-slate transition hover:border-green hover:text-green disabled:opacity-50"
         >
           + Add follow-up
@@ -255,7 +311,7 @@ export default function EmailSteps({
             <p className="mb-4 text-xs text-slate">Add an email address to this lead to send via Gmail.</p>
           )}
 
-          <form key={current.id} action={handleSave} className="space-y-3">
+          <form key={current.id} ref={formRef} action={handleSave} className="space-y-3">
             <label className="flex items-center gap-2 text-sm font-medium text-ink">
               <input
                 type="checkbox"
@@ -276,7 +332,7 @@ export default function EmailSteps({
                 <label className="mb-1.5 block text-sm font-medium text-ink">Subject</label>
                 <input
                   name="subject"
-                  defaultValue={current.subject}
+                  defaultValue={draft?.subject ?? current.subject}
                   className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
                 />
               </div>
@@ -286,7 +342,7 @@ export default function EmailSteps({
               <textarea
                 name="body"
                 rows={12}
-                defaultValue={current.body}
+                defaultValue={draft?.body ?? current.body}
                 className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
               />
             </div>
@@ -297,7 +353,7 @@ export default function EmailSteps({
                   <label className="mb-1.5 block text-sm font-medium text-ink">Send as</label>
                   <select
                     name="threadMode"
-                    defaultValue={current.threadMode}
+                    defaultValue={draft?.threadMode ?? current.threadMode}
                     className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
                   >
                     <option value="THREAD">Reply in the same thread as the previous email</option>
@@ -308,7 +364,7 @@ export default function EmailSteps({
                   <label className="mb-1.5 block text-sm font-medium text-ink">Only send if…</label>
                   <select
                     name="condition"
-                    defaultValue={current.condition}
+                    defaultValue={draft?.condition ?? current.condition}
                     className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
                   >
                     <option value="ALWAYS">Always send this step</option>
@@ -351,7 +407,7 @@ export default function EmailSteps({
                 <input
                   type="date"
                   name="scheduledDate"
-                  defaultValue={current.scheduledDate ?? ""}
+                  defaultValue={draft?.scheduledDate ?? current.scheduledDate ?? ""}
                   className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
                 />
               </div>
@@ -360,7 +416,7 @@ export default function EmailSteps({
                 <input
                   type="time"
                   name="scheduledTime"
-                  defaultValue={current.scheduledTime ?? ""}
+                  defaultValue={draft?.scheduledTime ?? current.scheduledTime ?? ""}
                   className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
                 />
               </div>
@@ -368,7 +424,7 @@ export default function EmailSteps({
                 <label className="mb-1.5 block text-sm font-medium text-ink">Timezone</label>
                 <select
                   name="scheduledTimezone"
-                  defaultValue={current.scheduledTimezone ?? ""}
+                  defaultValue={draft?.scheduledTimezone ?? current.scheduledTimezone ?? ""}
                   className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
                 >
                   <option value="">Auto-detect from address</option>
