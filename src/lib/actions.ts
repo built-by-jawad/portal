@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { del } from "@vercel/blob";
 import { guessTimezoneFromAddress } from "@/lib/timezone";
+import { deconflictSchedule } from "@/lib/scheduling";
 import {
   disconnectAccount,
   getDefaultAccountId,
@@ -57,6 +58,54 @@ async function seedEngagementDays(leadId: string, platforms: string[]) {
     })
   );
   await prisma.engagementDay.createMany({ data, skipDuplicates: true });
+}
+
+// After any change that could create or shift a same-account send-time collision (scheduling a
+// step, editing its time, or moving a lead to a different account), re-checks every not-yet-sent
+// scheduled email on that effective account and applies a random 15-30 minute buffer to any that
+// land within 15 minutes of another one on the same account. Returns the leadIds that got nudged
+// so callers can revalidate those pages too.
+async function deconflictAccountSchedule(effectiveAccountId: string): Promise<string[]> {
+  const records = await prisma.emailStepRecord.findMany({
+    where: { sentAt: null, scheduledDate: { not: null }, scheduledTime: { not: null } },
+    select: {
+      id: true,
+      leadId: true,
+      scheduledDate: true,
+      scheduledTime: true,
+      scheduledTimezone: true,
+      lead: { select: { sendAccountId: true } },
+    },
+  });
+
+  const defaultAccountId = await getDefaultAccountId();
+  const relevant = records.filter(
+    (r) => (r.lead.sendAccountId || defaultAccountId) === effectiveAccountId
+  );
+
+  const changes = deconflictSchedule(
+    relevant.map((r) => ({
+      id: r.id,
+      scheduledDate: r.scheduledDate!,
+      scheduledTime: r.scheduledTime!,
+      scheduledTimezone: r.scheduledTimezone || "UTC",
+    }))
+  );
+
+  if (changes.length === 0) return [];
+
+  const leadIdById = new Map(relevant.map((r) => [r.id, r.leadId]));
+
+  await Promise.all(
+    changes.map((c) =>
+      prisma.emailStepRecord.update({
+        where: { id: c.id },
+        data: { scheduledDate: c.scheduledDate, scheduledTime: c.scheduledTime },
+      })
+    )
+  );
+
+  return [...new Set(changes.map((c) => leadIdById.get(c.id)).filter((id): id is string => !!id))];
 }
 
 export type DraftEmail = {
@@ -149,7 +198,14 @@ export async function createLead(formData: FormData) {
 
   await seedEngagementDays(lead.id, platforms);
 
+  const effectiveAccountId = sendAccountId || (await getDefaultAccountId());
+  if (effectiveAccountId) {
+    const nudgedLeadIds = await deconflictAccountSchedule(effectiveAccountId);
+    nudgedLeadIds.forEach((id) => revalidatePath(`/leads/${id}`));
+  }
+
   revalidatePath("/leads");
+  revalidatePath("/calendar");
   redirect(`/leads/${lead.id}`);
 }
 
@@ -187,6 +243,14 @@ export async function updateLeadSendAccount(leadId: string, sendAccountId: strin
     where: { id: leadId },
     data: { sendAccountId: sendAccountId || null },
   });
+
+  const effectiveAccountId = sendAccountId || (await getDefaultAccountId());
+  if (effectiveAccountId) {
+    const nudgedLeadIds = await deconflictAccountSchedule(effectiveAccountId);
+    nudgedLeadIds.forEach((id) => revalidatePath(`/leads/${id}`));
+    if (nudgedLeadIds.length > 0) revalidatePath("/calendar");
+  }
+
   revalidatePath(`/leads/${leadId}`);
 }
 
@@ -254,9 +318,22 @@ export async function updateEmailStep(recordId: string, formData: FormData) {
       scheduledTime,
       scheduledTimezone,
     },
+    include: { lead: { select: { sendAccountId: true } } },
   });
 
+  let adjusted = false;
+  if (scheduledDate && scheduledTime) {
+    const effectiveAccountId = record.lead.sendAccountId || (await getDefaultAccountId());
+    if (effectiveAccountId) {
+      const nudgedLeadIds = await deconflictAccountSchedule(effectiveAccountId);
+      adjusted = nudgedLeadIds.includes(record.leadId);
+      nudgedLeadIds.forEach((id) => revalidatePath(`/leads/${id}`));
+      if (nudgedLeadIds.length > 0) revalidatePath("/calendar");
+    }
+  }
+
   revalidatePath(`/leads/${record.leadId}`);
+  return { adjusted };
 }
 
 export async function markEmailSent(leadId: string, recordId: string) {

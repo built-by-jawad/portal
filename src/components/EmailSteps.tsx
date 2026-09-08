@@ -86,8 +86,12 @@ export default function EmailSteps({
 
   function handleSave(formData: FormData) {
     startTransition(async () => {
-      await updateEmailStep(current.id, formData);
-      notify("Saved");
+      const result = await updateEmailStep(current.id, formData);
+      notify(
+        result?.adjusted
+          ? "Saved — time shifted to avoid overlapping another send on this account"
+          : "Saved"
+      );
     });
   }
 

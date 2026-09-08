@@ -47,6 +47,58 @@ export function isDue(dateStr: string | null, timeStr: string | null, timeZone: 
   return due !== null && due.getTime() <= now.getTime();
 }
 
+// Converts a real UTC instant back to the wall-clock date/time as seen in a given IANA timezone —
+// the inverse of scheduledToUtc, used after nudging a scheduled instant forward by a buffer.
+function utcToWallClock(date: Date, timeZone: string): { dateStr: string; timeStr: string } {
+  const dateStr = new Intl.DateTimeFormat("en-CA", { timeZone, dateStyle: "short" }).format(date);
+  const timeStr = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
+  return { dateStr, timeStr };
+}
+
+export type ScheduleItem = {
+  id: string;
+  scheduledDate: string;
+  scheduledTime: string;
+  scheduledTimezone: string;
+};
+
+const MIN_GAP_MS = 15 * 60 * 1000;
+
+// Human-like send spacing: given every not-yet-sent scheduled email on one Gmail account, any two
+// that land within 15 minutes of each other (as real UTC instants, so timezones are compared
+// correctly) get pushed apart by a random 15-30 minute buffer, walking chronologically so a chain
+// of near-simultaneous emails cascades apart instead of just fixing the first collision. Emails on
+// different accounts are left alone even if they land at the exact same time — overlap across
+// accounts is fine, it's only same-account overlap that looks robotic.
+export function deconflictSchedule(items: ScheduleItem[]): { id: string; scheduledDate: string; scheduledTime: string }[] {
+  const withUtc = items
+    .map((item) => ({ ...item, utc: scheduledToUtc(item.scheduledDate, item.scheduledTime, item.scheduledTimezone) }))
+    .filter((item): item is ScheduleItem & { utc: Date } => item.utc !== null)
+    .sort((a, b) => a.utc.getTime() - b.utc.getTime());
+
+  const changes: { id: string; scheduledDate: string; scheduledTime: string }[] = [];
+
+  for (let i = 1; i < withUtc.length; i++) {
+    const prev = withUtc[i - 1];
+    const cur = withUtc[i];
+    if (cur.utc.getTime() - prev.utc.getTime() < MIN_GAP_MS) {
+      const bufferMinutes = 15 + Math.floor(Math.random() * 16); // 15-30 inclusive
+      cur.utc = new Date(prev.utc.getTime() + bufferMinutes * 60 * 1000);
+      const { dateStr, timeStr } = utcToWallClock(cur.utc, cur.scheduledTimezone || "UTC");
+      cur.scheduledDate = dateStr;
+      cur.scheduledTime = timeStr;
+      changes.push({ id: cur.id, scheduledDate: dateStr, scheduledTime: timeStr });
+    }
+  }
+
+  return changes;
+}
+
 export type CalendarView = "today" | "week" | "month";
 
 // Adds days to a YYYY-MM-DD string, staying in plain calendar-date arithmetic (no timezone
