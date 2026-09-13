@@ -120,6 +120,16 @@ export function getWeekDates(anchorStr: string): string[] {
   return Array.from({ length: 7 }, (_, i) => addDays(start, i));
 }
 
+// The 7 dates (Mon–Sun) of the calendar week containing `anchorStr` — used by /client-updates,
+// where the work week (and its Sunday review) runs Monday-first rather than the Sun–Sat grid
+// getWeekDates above uses for the outreach calendar.
+export function getWeekDatesMondayStart(anchorStr: string): string[] {
+  const dow = dayOfWeek(anchorStr); // 0 = Sunday .. 6 = Saturday
+  const offsetFromMonday = dow === 0 ? 6 : dow - 1;
+  const start = addDays(anchorStr, -offsetFromMonday);
+  return Array.from({ length: 7 }, (_, i) => addDays(start, i));
+}
+
 // The 42 dates (6 full Sun–Sat weeks) that cover the calendar month containing `anchorStr`,
 // including the leading/trailing days from adjacent months — the standard month-grid shape.
 export function getMonthGridDates(anchorStr: string): string[] {

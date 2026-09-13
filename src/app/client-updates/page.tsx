@@ -3,7 +3,7 @@ import PageHeader from "@/components/PageHeader";
 import DeleteClientUpdateButton from "@/components/DeleteClientUpdateButton";
 import ClientFilterSelect from "@/components/ClientFilterSelect";
 import { prisma } from "@/lib/prisma";
-import { getWeekDates, todayInTimeZone } from "@/lib/scheduling";
+import { getWeekDatesMondayStart, todayInTimeZone } from "@/lib/scheduling";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +28,7 @@ export default async function ClientUpdatesPage({
   let dateFrom: string | null = null;
   let dateTo: string | null = null;
   if (view === "week") {
-    const week = getWeekDates(anchor);
+    const week = getWeekDatesMondayStart(anchor);
     dateFrom = week[0];
     dateTo = week[6];
   } else if (view === "month") {

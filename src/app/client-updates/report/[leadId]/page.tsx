@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import PrintReportButton from "@/components/PrintReportButton";
-import { addDays, getWeekDates, todayInTimeZone } from "@/lib/scheduling";
+import { addDays, getWeekDatesMondayStart, todayInTimeZone } from "@/lib/scheduling";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +41,7 @@ export default async function ClientUpdateReportPage({
   let nextHref: string;
 
   if (period === "week") {
-    const week = getWeekDates(anchor);
+    const week = getWeekDatesMondayStart(anchor);
     dateFrom = week[0];
     dateTo = week[6];
     title = `Week of ${dateFrom} – ${dateTo}`;
