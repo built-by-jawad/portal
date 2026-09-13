@@ -566,3 +566,55 @@ export async function deleteScript(id: string) {
   revalidatePath("/scripts");
   redirect("/scripts");
 }
+
+export async function createClientUpdate(formData: FormData) {
+  const leadId = str(formData, "leadId");
+  const date = str(formData, "date");
+  const taskName = str(formData, "taskName");
+  if (!leadId) throw new Error("Client is required");
+  if (!date) throw new Error("Date is required");
+  if (!taskName) throw new Error("Task name is required");
+
+  const update = await prisma.clientUpdate.create({
+    data: {
+      leadId,
+      date,
+      taskName,
+      description: str(formData, "description"),
+    },
+  });
+
+  revalidatePath("/client-updates");
+  redirect(`/client-updates/${update.id}`);
+}
+
+export async function updateClientUpdate(id: string, formData: FormData) {
+  const taskName = str(formData, "taskName");
+  if (!taskName) throw new Error("Task name is required");
+
+  await prisma.clientUpdate.update({
+    where: { id },
+    data: {
+      date: str(formData, "date") ?? undefined,
+      taskName,
+      description: str(formData, "description"),
+    },
+  });
+
+  revalidatePath("/client-updates");
+  revalidatePath(`/client-updates/${id}`);
+}
+
+export async function deleteClientUpdate(id: string) {
+  const update = await prisma.clientUpdate.findUnique({
+    where: { id },
+    include: { screenshots: true },
+  });
+  if (!update) return;
+
+  await Promise.all(update.screenshots.map((s) => del(s.url).catch(() => {})));
+  await prisma.clientUpdate.delete({ where: { id } });
+
+  revalidatePath("/client-updates");
+  redirect("/client-updates");
+}

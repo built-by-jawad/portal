@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { href: "/engagement", label: "Engagement", icon: "◎" },
   { href: "/leads", label: "Leads", icon: "☰" },
   { href: "/clients", label: "Clients", icon: "◆" },
+  { href: "/client-updates", label: "Client Updates", icon: "✎" },
   { href: "/scripts", label: "Scripts", icon: "▤" },
   { href: "/inbox", label: "Inbox", icon: "✉" },
   { href: "/settings", label: "Settings", icon: "⚙" },
@@ -45,7 +46,7 @@ export default function Sidebar() {
   return (
     <>
       {/* Mobile top bar */}
-      <div className="flex items-center justify-between bg-ink px-4 py-3 md:hidden">
+      <div className="flex items-center justify-between bg-ink px-4 py-3 md:hidden print:hidden">
         <Link href="/" className="flex items-center gap-2" onClick={() => setOpen(false)}>
           <img
             src="/brand/builtbyjawad-wordmark-light.svg"
@@ -66,7 +67,7 @@ export default function Sidebar() {
       <aside
         className={`${open ? "flex" : "hidden"} md:flex ${
           collapsed ? "md:w-16" : "md:w-64"
-        } relative w-full shrink-0 flex-col bg-ink px-4 py-6 md:min-h-screen ${
+        } relative w-full shrink-0 flex-col bg-ink px-4 py-6 md:min-h-screen print:hidden ${
           hydrated ? "transition-[width] duration-150" : ""
         }`}
       >

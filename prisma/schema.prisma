@@ -41,6 +41,7 @@ model Lead {
   engagementDays  EngagementDay[]
   tasks           Task[]
   files           LeadFile[]
+  clientUpdates   ClientUpdate[]
 }
 
 // Files (screenshots, PDFs, etc.) attached directly to a lead, separate from email attachments —
@@ -173,6 +174,36 @@ model Task {
   completedAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+}
+
+// A logged unit of work done for a client (a Lead with status BOOKED) — powers the /client-updates
+// page's weekly (every Sunday) and monthly (last day of month) client-facing progress reports.
+// date is a plain YYYY-MM-DD string, hand-entered, matching the scheduling fields elsewhere in
+// this schema.
+model ClientUpdate {
+  id          String   @id @default(cuid())
+  leadId      String
+  lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  date        String
+  taskName    String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  screenshots ClientUpdateScreenshot[]
+}
+
+// Proof screenshot(s) for one ClientUpdate, uploaded to Vercel Blob (same pattern as
+// Attachment/LeadFile) — either picked via file input or pasted straight from the clipboard.
+model ClientUpdateScreenshot {
+  id             String       @id @default(cuid())
+  clientUpdateId String
+  clientUpdate   ClientUpdate @relation(fields: [clientUpdateId], references: [id], onDelete: Cascade)
+  filename       String
+  url            String
+  size           Int
+  contentType    String
+  createdAt      DateTime     @default(now())
 }
 
 // A stored content script (call script, video/reel script, email script, etc.) — free-text title,

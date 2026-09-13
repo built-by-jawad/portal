@@ -22,12 +22,18 @@ export default function AddFab() {
 
   useEffect(() => setOpen(false), [pathname]);
 
-  if (pathname === "/leads/new" || pathname === "/tasks/new") return null;
+  if (pathname === "/leads/new" || pathname === "/tasks/new" || pathname === "/client-updates/new") return null;
 
   return (
-    <div ref={ref} className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2">
+    <div ref={ref} className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2 print:hidden">
       {open && (
         <div className="flex flex-col gap-2">
+          <Link
+            href="/client-updates/new"
+            className="flex items-center gap-2 rounded-full bg-ink px-4 py-2.5 text-sm font-semibold text-paper shadow-lg transition hover:brightness-110"
+          >
+            + Log Client Update
+          </Link>
           <Link
             href="/tasks/new"
             className="flex items-center gap-2 rounded-full bg-ink px-4 py-2.5 text-sm font-semibold text-paper shadow-lg transition hover:brightness-110"
