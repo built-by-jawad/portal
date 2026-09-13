@@ -119,9 +119,18 @@ export default async function ClientUpdatesPage({
                     {u.taskName}
                   </Link>
                   {u.description && <p className="mt-1 text-sm text-slate">{u.description}</p>}
-                  {u.screenshots.length > 0 && (
-                    <p className="mt-1 text-xs text-slate">
-                      {u.screenshots.length} screenshot{u.screenshots.length === 1 ? "" : "s"}
+                  {(u.screenshots.length > 0 || u.proofLink) && (
+                    <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate">
+                      {u.screenshots.length > 0 && (
+                        <span>
+                          {u.screenshots.length} screenshot{u.screenshots.length === 1 ? "" : "s"}
+                        </span>
+                      )}
+                      {u.proofLink && (
+                        <a href={u.proofLink} target="_blank" rel="noopener noreferrer" className="font-semibold text-green hover:underline">
+                          Proof link ↗
+                        </a>
+                      )}
                     </p>
                   )}
                 </div>

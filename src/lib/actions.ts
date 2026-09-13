@@ -567,6 +567,9 @@ export async function deleteScript(id: string) {
   redirect("/scripts");
 }
 
+// Does NOT redirect — the new-update form is a client component that stages screenshots before
+// this ever runs, then uploads them against the returned id and shows its own "Saved" toast, so
+// this just needs to hand back the created record.
 export async function createClientUpdate(formData: FormData) {
   const leadId = str(formData, "leadId");
   const date = str(formData, "date");
@@ -581,11 +584,12 @@ export async function createClientUpdate(formData: FormData) {
       date,
       taskName,
       description: str(formData, "description"),
+      proofLink: str(formData, "proofLink"),
     },
   });
 
   revalidatePath("/client-updates");
-  redirect(`/client-updates/${update.id}`);
+  return update;
 }
 
 export async function updateClientUpdate(id: string, formData: FormData) {
@@ -598,6 +602,7 @@ export async function updateClientUpdate(id: string, formData: FormData) {
       date: str(formData, "date") ?? undefined,
       taskName,
       description: str(formData, "description"),
+      proofLink: str(formData, "proofLink"),
     },
   });
 

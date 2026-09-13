@@ -187,6 +187,9 @@ model ClientUpdate {
   date        String
   taskName    String
   description String?
+  // Optional link to proof hosted elsewhere (a live page, a doc, a video) — alongside or instead
+  // of uploaded/pasted screenshots, both are optional.
+  proofLink   String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

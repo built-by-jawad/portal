@@ -105,6 +105,11 @@ export default async function ClientUpdateReportPage({
                 <p className="text-xs font-semibold uppercase tracking-wide text-green">{u.date}</p>
                 <p className="font-display text-base font-bold text-ink">{u.taskName}</p>
                 {u.description && <p className="mt-1 text-sm text-slate">{u.description}</p>}
+                {u.proofLink && (
+                  <a href={u.proofLink} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-sm font-semibold text-green hover:underline">
+                    View proof ↗
+                  </a>
+                )}
                 {u.screenshots.length > 0 && (
                   <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
                     {u.screenshots.map((s) => (
