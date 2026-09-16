@@ -42,6 +42,7 @@ model Lead {
   tasks           Task[]
   files           LeadFile[]
   clientUpdates   ClientUpdate[]
+  questions       ClientQuestion[]
 }
 
 // Files (screenshots, PDFs, etc.) attached directly to a lead, separate from email attachments —
@@ -207,6 +208,20 @@ model ClientUpdateScreenshot {
   size           Int
   contentType    String
   createdAt      DateTime     @default(now())
+}
+
+// A running "things to ask this client" list, shown on their lead detail page — jot a question
+// down whenever it comes to mind, check it off (optionally logging the answer) once it's actually
+// asked and answered so nothing gets forgotten before the next call/email.
+model ClientQuestion {
+  id         String    @id @default(cuid())
+  leadId     String
+  lead       Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  question   String
+  answer     String?
+  resolvedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 }
 
 // A stored content script (call script, video/reel script, email script, etc.) — free-text title,

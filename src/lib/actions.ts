@@ -623,3 +623,33 @@ export async function deleteClientUpdate(id: string) {
   revalidatePath("/client-updates");
   redirect("/client-updates");
 }
+
+export async function createClientQuestion(leadId: string, formData: FormData) {
+  const question = str(formData, "question");
+  if (!question) throw new Error("Question is required");
+
+  await prisma.clientQuestion.create({ data: { leadId, question } });
+  revalidatePath(`/leads/${leadId}`);
+}
+
+export async function toggleClientQuestionResolved(id: string, leadId: string) {
+  const q = await prisma.clientQuestion.findUniqueOrThrow({ where: { id } });
+  await prisma.clientQuestion.update({
+    where: { id },
+    data: { resolvedAt: q.resolvedAt ? null : new Date() },
+  });
+  revalidatePath(`/leads/${leadId}`);
+}
+
+export async function updateClientQuestionAnswer(id: string, leadId: string, formData: FormData) {
+  await prisma.clientQuestion.update({
+    where: { id },
+    data: { answer: str(formData, "answer") },
+  });
+  revalidatePath(`/leads/${leadId}`);
+}
+
+export async function deleteClientQuestion(id: string, leadId: string) {
+  await prisma.clientQuestion.delete({ where: { id } });
+  revalidatePath(`/leads/${leadId}`);
+}

@@ -10,6 +10,7 @@ import LeadInbox from "@/components/LeadInbox";
 import LeadSendAccountSelect from "@/components/LeadSendAccountSelect";
 import CheckRepliesButton from "@/components/CheckRepliesButton";
 import LeadFiles from "@/components/LeadFiles";
+import ClientQuestions from "@/components/ClientQuestions";
 import { getDefaultAccountId, listEmailAccounts } from "@/lib/google";
 
 export default async function LeadDetailPage({
@@ -25,6 +26,7 @@ export default async function LeadDetailPage({
       include: {
         emails: { include: { attachments: true }, orderBy: { order: "asc" } },
         files: { orderBy: { createdAt: "desc" } },
+        questions: { orderBy: { createdAt: "desc" } },
       },
     }),
     listEmailAccounts(),
@@ -78,6 +80,10 @@ export default async function LeadDetailPage({
 
       <div className="mb-10">
         <LeadFiles leadId={lead.id} files={lead.files} />
+      </div>
+
+      <div className="mb-10">
+        <ClientQuestions leadId={lead.id} questions={lead.questions} />
       </div>
 
       <LeadWorkspace
