@@ -653,3 +653,22 @@ export async function deleteClientQuestion(id: string, leadId: string) {
   await prisma.clientQuestion.delete({ where: { id } });
   revalidatePath(`/leads/${leadId}`);
 }
+
+export async function createIdea(formData: FormData) {
+  const content = str(formData, "content");
+  if (!content) throw new Error("Idea can't be empty");
+
+  await prisma.idea.create({ data: { content } });
+  revalidatePath("/ideas");
+}
+
+export async function toggleIdeaStarred(id: string) {
+  const idea = await prisma.idea.findUniqueOrThrow({ where: { id } });
+  await prisma.idea.update({ where: { id }, data: { starred: !idea.starred } });
+  revalidatePath("/ideas");
+}
+
+export async function deleteIdea(id: string) {
+  await prisma.idea.delete({ where: { id } });
+  revalidatePath("/ideas");
+}

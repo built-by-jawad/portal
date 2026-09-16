@@ -224,6 +224,16 @@ model ClientQuestion {
   updatedAt  DateTime  @updatedAt
 }
 
+// A free-form idea jotted down for later (a niche to try, a feature to build, a content angle,
+// anything) — not tied to a lead or client, just a running scratchpad. starred pins it to the top;
+// there's no "done" state, delete it once it's no longer worth keeping.
+model Idea {
+  id        String   @id @default(cuid())
+  content   String
+  starred   Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
 // A stored content script (call script, video/reel script, email script, etc.) — free-text title,
 // optional category label, and the script body itself. Shown as a card grid on /scripts; clicking
 // a card opens the full script on its own page (/scripts/[id]).
