@@ -13,9 +13,13 @@ import Placeholder from "@tiptap/extension-placeholder";
 export default function RichTextEditor({
   name = "content",
   initialContent = "",
+  placeholder = "Write the script…",
+  onChange,
 }: {
   name?: string;
   initialContent?: string;
+  placeholder?: string;
+  onChange?: (html: string) => void;
 }) {
   const [html, setHtml] = useState(initialContent);
   const [focusMode, setFocusMode] = useState(false);
@@ -26,10 +30,14 @@ export default function RichTextEditor({
       StarterKit,
       Underline,
       Link.configure({ openOnClick: false }),
-      Placeholder.configure({ placeholder: "Write the script…" }),
+      Placeholder.configure({ placeholder }),
     ],
     content: initialContent,
-    onUpdate: ({ editor }) => setHtml(editor.getHTML()),
+    onUpdate: ({ editor }) => {
+      const next = editor.getHTML();
+      setHtml(next);
+      onChange?.(next);
+    },
     editorProps: {
       attributes: {
         class: focusMode

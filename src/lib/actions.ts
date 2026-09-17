@@ -654,23 +654,19 @@ export async function deleteClientQuestion(id: string, leadId: string) {
   revalidatePath(`/leads/${leadId}`);
 }
 
-export async function createIdea(formData: FormData) {
-  const content = str(formData, "content");
-  if (!content) throw new Error("Idea can't be empty");
-
+// Creates the idea record the first time there's something worth saving (called once, from the
+// client, on the first debounced autosave tick on a brand-new idea) — returns the id so the editor
+// can keep autosaving against it via autosaveIdea below.
+export async function createIdeaDraft(content: string): Promise<string> {
   const idea = await prisma.idea.create({ data: { content } });
   revalidatePath("/ideas");
-  redirect(`/ideas/${idea.id}`);
+  return idea.id;
 }
 
-export async function updateIdea(id: string, formData: FormData) {
-  const content = str(formData, "content");
-  if (!content) throw new Error("Idea can't be empty");
-
+export async function autosaveIdea(id: string, content: string) {
   await prisma.idea.update({ where: { id }, data: { content } });
   revalidatePath("/ideas");
   revalidatePath(`/ideas/${id}`);
-  redirect(`/ideas/${id}`);
 }
 
 export async function toggleIdeaStarred(id: string) {
