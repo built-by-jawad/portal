@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { createIdea, deleteIdea, toggleIdeaStarred } from "@/lib/actions";
 import { useToast } from "@/components/ToastProvider";
+import RichTextEditor from "@/components/RichTextEditor";
 
 type Idea = {
   id: string;
@@ -14,33 +15,29 @@ type Idea = {
 export default function IdeasList({ ideas }: { ideas: Idea[] }) {
   const [isPending, startTransition] = useTransition();
   const notify = useToast();
-  const formRef = useRef<HTMLFormElement>(null);
+  const [editorKey, setEditorKey] = useState(0);
 
   const starred = ideas.filter((i) => i.starred);
   const rest = ideas.filter((i) => !i.starred);
 
   function addIdea(formData: FormData) {
+    const content = String(formData.get("content") || "").trim();
+    if (!content || content === "<p></p>") return;
     startTransition(async () => {
       await createIdea(formData);
       notify("Saved");
-      formRef.current?.reset();
+      setEditorKey((k) => k + 1);
     });
   }
 
   return (
     <div>
-      <form ref={formRef} action={addIdea} className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-start">
-        <textarea
-          name="content"
-          required
-          rows={2}
-          placeholder="What's the idea?"
-          className="flex-1 resize-y rounded-lg border border-mist/40 bg-white px-3 py-2 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
-        />
+      <form action={addIdea} className="mb-6">
+        <RichTextEditor key={editorKey} name="content" />
         <button
           type="submit"
           disabled={isPending}
-          className="shrink-0 rounded-lg bg-green px-4 py-2 text-sm font-semibold text-paper transition hover:brightness-95 disabled:opacity-60"
+          className="mt-2 rounded-lg bg-green px-4 py-2 text-sm font-semibold text-paper transition hover:brightness-95 disabled:opacity-60"
         >
           Save idea
         </button>
@@ -107,7 +104,10 @@ function IdeaRow({
         ★
       </button>
       <div className="min-w-0 flex-1">
-        <p className="whitespace-pre-wrap text-sm text-ink">{idea.content}</p>
+        <div
+          className="prose prose-sm max-w-none text-sm text-ink"
+          dangerouslySetInnerHTML={{ __html: idea.content }}
+        />
         <p className="mt-1 text-xs text-slate">{new Date(idea.createdAt).toLocaleDateString()}</p>
       </div>
       <button
