@@ -232,6 +232,7 @@ model Idea {
   content   String
   starred   Boolean  @default(false)
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // A stored content script (call script, video/reel script, email script, etc.) — free-text title,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
@@ -18,6 +18,7 @@ export default function RichTextEditor({
   initialContent?: string;
 }) {
   const [html, setHtml] = useState(initialContent);
+  const [focusMode, setFocusMode] = useState(false);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -31,11 +32,27 @@ export default function RichTextEditor({
     onUpdate: ({ editor }) => setHtml(editor.getHTML()),
     editorProps: {
       attributes: {
-        class:
-          "prose prose-sm max-w-none min-h-[280px] rounded-b-lg border border-t-0 border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:outline-none",
+        class: focusMode
+          ? "prose prose-lg max-w-none min-h-full rounded-none border-0 bg-white px-6 py-6 text-ink focus:outline-none"
+          : "prose prose-sm max-w-none min-h-[280px] rounded-b-lg border border-t-0 border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:outline-none",
       },
     },
   });
+
+  useEffect(() => {
+    if (!focusMode) return;
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setFocusMode(false);
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "";
+    };
+  }, [focusMode]);
 
   if (!editor) {
     return (
@@ -43,9 +60,9 @@ export default function RichTextEditor({
     );
   }
 
-  return (
-    <div>
-      <div className="flex flex-wrap items-center gap-1 rounded-t-lg border border-mist/40 bg-paper/60 p-1.5">
+  const toolbar = (
+    <>
+      <div className={`flex flex-wrap items-center gap-1 border border-mist/40 bg-paper/60 p-1.5 ${focusMode ? "" : "rounded-t-lg"}`}>
         <ToolbarButton active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()}>
           <strong>B</strong>
         </ToolbarButton>
@@ -106,8 +123,31 @@ export default function RichTextEditor({
         <ToolbarButton onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()}>
           Clear
         </ToolbarButton>
+        <Divider />
+        <ToolbarButton onClick={() => setFocusMode((v) => !v)}>
+          {focusMode ? "✕ Exit Focus" : "⛶ Focus Mode"}
+        </ToolbarButton>
       </div>
+    </>
+  );
 
+  if (focusMode) {
+    return (
+      <div className="fixed inset-0 z-[200] flex flex-col bg-paper">
+        {toolbar}
+        <div className="flex-1 overflow-y-auto">
+          <div className="mx-auto max-w-3xl">
+            <EditorContent editor={editor} />
+          </div>
+        </div>
+        <input type="hidden" name={name} value={html} readOnly />
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {toolbar}
       <EditorContent editor={editor} />
       <input type="hidden" name={name} value={html} readOnly />
     </div>
