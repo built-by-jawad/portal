@@ -12,10 +12,10 @@ const PAKISTAN_TZ = "Asia/Karachi";
 export default async function ClientUpdatesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ leadId?: string; view?: string; anchor?: string }>;
+  searchParams: Promise<{ leadId?: string; view?: string; anchor?: string; from?: string; to?: string }>;
 }) {
-  const { leadId, view: rawView, anchor: rawAnchor } = await searchParams;
-  const view = rawView === "month" || rawView === "all" ? rawView : "week";
+  const { leadId, view: rawView, anchor: rawAnchor, from: rawFrom, to: rawTo } = await searchParams;
+  const view = rawView === "month" || rawView === "all" || rawView === "custom" ? rawView : "week";
   const today = todayInTimeZone(PAKISTAN_TZ);
   const anchor = rawAnchor || today;
 
@@ -34,6 +34,9 @@ export default async function ClientUpdatesPage({
   } else if (view === "month") {
     dateFrom = `${anchor.slice(0, 7)}-01`;
     dateTo = `${anchor.slice(0, 7)}-31`;
+  } else if (view === "custom") {
+    dateFrom = rawFrom || null;
+    dateTo = rawTo || null;
   }
 
   const updates = await prisma.clientUpdate.findMany({
@@ -70,19 +73,49 @@ export default async function ClientUpdatesPage({
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <ClientFilterSelect clients={clients} value={leadId || ""} view={view} anchor={rawAnchor} />
 
-        <div className="ml-auto flex gap-1 rounded-lg border border-mist/30 bg-white/60 p-1">
-          {(["week", "month", "all"] as const).map((v) => (
+        <div className="flex gap-1 rounded-lg border border-mist/30 bg-white/60 p-1">
+          {(["week", "month", "all", "custom"] as const).map((v) => (
             <Link
               key={v}
-              href={viewHref(v)}
+              href={v === "custom" ? `${viewHref(v)}${dateFrom && dateTo ? `&from=${dateFrom}&to=${dateTo}` : ""}` : viewHref(v)}
               className={`rounded-md px-3 py-1.5 text-xs font-semibold capitalize transition ${
                 view === v ? "bg-green text-paper" : "text-ink hover:bg-mist/10"
               }`}
             >
-              {v === "week" ? "This week" : v === "month" ? "This month" : "All time"}
+              {v === "week" ? "This week" : v === "month" ? "This month" : v === "all" ? "All time" : "Custom"}
             </Link>
           ))}
         </div>
+
+        {view === "custom" && (
+          <form action="/client-updates" method="get" className="flex items-center gap-2">
+            <input type="hidden" name="view" value="custom" />
+            {leadId && <input type="hidden" name="leadId" value={leadId} />}
+            <input
+              type="date"
+              name="from"
+              defaultValue={rawFrom || ""}
+              required
+              className="rounded-lg border border-mist/40 bg-white px-2.5 py-1.5 text-xs text-ink focus:border-green focus:outline-none"
+            />
+            <span className="text-xs text-slate">to</span>
+            <input
+              type="date"
+              name="to"
+              defaultValue={rawTo || ""}
+              required
+              className="rounded-lg border border-mist/40 bg-white px-2.5 py-1.5 text-xs text-ink focus:border-green focus:outline-none"
+            />
+            <button
+              type="submit"
+              className="rounded-lg border border-mist/40 px-3 py-1.5 text-xs font-semibold text-ink transition hover:bg-mist/10"
+            >
+              Apply
+            </button>
+          </form>
+        )}
+
+        <div className="ml-auto" />
 
         {leadId && view === "week" && (
           <Link

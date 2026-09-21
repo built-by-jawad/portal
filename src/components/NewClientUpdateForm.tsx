@@ -81,7 +81,7 @@ export default function NewClientUpdateForm({
         }
 
         notify("Saved");
-        router.push(`/client-updates/${update.id}`);
+        router.push("/client-updates");
       } finally {
         setSaving(false);
       }

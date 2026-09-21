@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ToastProvider";
 import { updateClientUpdate } from "@/lib/actions";
 
@@ -19,11 +20,13 @@ export default function ClientUpdateEditForm({
 }) {
   const [isPending, startTransition] = useTransition();
   const notify = useToast();
+  const router = useRouter();
 
   function handleSubmit(formData: FormData) {
     startTransition(async () => {
       await updateClientUpdate(id, formData);
       notify("Saved");
+      router.push("/client-updates");
     });
   }
 
