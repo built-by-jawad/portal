@@ -237,23 +237,61 @@ model Idea {
 
 // Raw, unqualified business data (usually pulled in bulk from the Google Maps scraper, sometimes
 // added by hand) — a spreadsheet/database of businesses that are NOT leads yet. Nothing here has
-// been vetted or had outreach started. "Convert to lead" copies the relevant fields into a real
-// Lead and stamps convertedLeadId so the row shows as converted and won't be converted again.
+// been vetted or had outreach started. Pure data storage/qualification tool, no "convert" step.
+// customFields holds values for any ad-hoc columns added via ProspectColumn, keyed by column id.
 model Prospect {
-  id              String   @id @default(cuid())
-  businessName    String
-  phone           String?
-  emails          String?
-  website         String?
-  category        String?
-  address         String?
-  rating          Float?
-  reviewCount     Int?
-  notes           String?
-  source          String?
-  convertedLeadId String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id           String   @id @default(cuid())
+  businessName String
+  phone        String?
+  emails       String?
+  website      String?
+  category     String?
+  address      String?
+  rating       Float?
+  reviewCount  Int?
+  notes        String?
+  source       String?
+  customFields Json     @default("{}")
+  order        Float    @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  checklistItems ProspectChecklistItem[]
+}
+
+// A user-defined extra column on the Prospects grid (beyond the built-in fields on Prospect
+// itself) — Notion-database style. Values live in Prospect.customFields[key]. type is "TEXT" or
+// "NUMBER", validated/interpreted in app code.
+model ProspectColumn {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  label     String
+  type      String   @default("TEXT")
+  createdAt DateTime @default(now())
+}
+
+// Singleton row holding the display order of every Prospects grid column (built-in field keys
+// plus ProspectColumn ids/keys, mixed together) so built-in and custom columns can be reordered
+// against each other. id is always "singleton".
+model ProspectBoardSettings {
+  id          String   @id @default("singleton")
+  columnOrder String[] @default([])
+  updatedAt   DateTime @updatedAt
+}
+
+// One checklist line under a named section on a prospect's detail panel (e.g. "Independence
+// check" -> "Google the business name + franchise..."). New prospects are seeded from the
+// default qualification template in src/lib/prospectChecklist.ts, then fully editable per-row
+// (add/edit/delete/check) from there — the template is just a starting point, not a schema.
+model ProspectChecklistItem {
+  id         String   @id @default(cuid())
+  prospectId String
+  prospect   Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  section    String
+  text       String
+  checked    Boolean  @default(false)
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
 }
 
 // A stored content script (call script, video/reel script, email script, etc.) — free-text title,

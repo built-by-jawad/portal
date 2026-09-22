@@ -14,6 +14,7 @@ import {
 } from "@/lib/google";
 import { performSend } from "@/lib/sendEngine";
 import { ENGAGEMENT_DAYS, SOCIAL_PLATFORMS } from "@/lib/constants";
+import { DEFAULT_PROSPECT_CHECKLIST } from "@/lib/prospectChecklist";
 
 function str(formData: FormData, key: string): string | null {
   const v = formData.get(key);
@@ -683,7 +684,37 @@ export async function deleteIdea(id: string) {
 }
 
 // Prospects: raw, unvetted business data (bulk-imported or added by hand) that hasn't become a
-// lead yet. See prisma/schema.prisma Prospect model for field meanings.
+// lead yet. See prisma/schema.prisma Prospect/ProspectColumn/ProspectBoardSettings/
+// ProspectChecklistItem models for field meanings. Rows sort by `order` ascending (new rows go
+// to the bottom); columns sort by ProspectBoardSettings.columnOrder.
+
+const BUILTIN_PROSPECT_FIELDS = new Set([
+  "businessName",
+  "phone",
+  "emails",
+  "website",
+  "category",
+  "address",
+  "notes",
+]);
+const BUILTIN_PROSPECT_NUMBER_FIELDS = new Set(["rating", "reviewCount"]);
+
+async function nextProspectOrder(): Promise<number> {
+  const last = await prisma.prospect.findFirst({ orderBy: { order: "desc" }, select: { order: true } });
+  return (last?.order ?? 0) + 1;
+}
+
+async function seedProspectChecklist(prospectId: string) {
+  await prisma.prospectChecklistItem.createMany({
+    data: DEFAULT_PROSPECT_CHECKLIST.map((item, i) => ({
+      prospectId,
+      section: item.section,
+      text: item.text,
+      order: i,
+    })),
+  });
+}
+
 export async function createProspect(data: {
   businessName: string;
   phone?: string;
@@ -696,6 +727,7 @@ export async function createProspect(data: {
   notes?: string;
   source?: string;
 }) {
+  const order = await nextProspectOrder();
   const prospect = await prisma.prospect.create({
     data: {
       businessName: data.businessName || "Untitled business",
@@ -708,32 +740,52 @@ export async function createProspect(data: {
       reviewCount: data.reviewCount ?? null,
       notes: data.notes || null,
       source: data.source || null,
+      order,
     },
   });
+  await seedProspectChecklist(prospect.id);
   revalidatePath("/prospects");
   return prospect;
 }
 
-const PROSPECT_FIELD_WHITELIST = new Set([
-  "businessName",
-  "phone",
-  "emails",
-  "website",
-  "category",
-  "address",
-  "notes",
-]);
+// Adds `count` empty rows at once, at the bottom, each seeded with the default checklist.
+export async function createProspectsBulk(count: number) {
+  const n = Math.max(1, Math.min(count, 200));
+  const start = await nextProspectOrder();
+  const created: { id: string }[] = [];
+  for (let i = 0; i < n; i++) {
+    const prospect = await prisma.prospect.create({
+      data: { businessName: "Untitled business", order: start + i },
+      select: { id: true },
+    });
+    await seedProspectChecklist(prospect.id);
+    created.push(prospect);
+  }
+  revalidatePath("/prospects");
+  return created;
+}
 
-// Single-cell edit, used by the spreadsheet-style /prospects table (save on blur, one field at a time).
+// Single built-in text field edit (spreadsheet cell save-on-blur).
 export async function updateProspectField(id: string, field: string, value: string) {
-  if (!PROSPECT_FIELD_WHITELIST.has(field)) throw new Error(`Field not editable: ${field}`);
+  if (!BUILTIN_PROSPECT_FIELDS.has(field)) throw new Error(`Field not editable: ${field}`);
   await prisma.prospect.update({ where: { id }, data: { [field]: value || null } });
   revalidatePath("/prospects");
 }
 
-export async function updateProspectNumberField(id: string, field: "rating" | "reviewCount", value: string) {
+export async function updateProspectNumberField(id: string, field: string, value: string) {
+  if (!BUILTIN_PROSPECT_NUMBER_FIELDS.has(field)) throw new Error(`Field not editable: ${field}`);
   const num = value.trim() === "" ? null : field === "rating" ? parseFloat(value) : parseInt(value, 10);
   await prisma.prospect.update({ where: { id }, data: { [field]: Number.isFinite(num as number) ? num : null } });
+  revalidatePath("/prospects");
+}
+
+// Custom column value — stored in Prospect.customFields[columnKey].
+export async function updateProspectCustomField(id: string, columnKey: string, value: string) {
+  const prospect = await prisma.prospect.findUniqueOrThrow({ where: { id }, select: { customFields: true } });
+  const customFields = { ...(prospect.customFields as Record<string, string>) };
+  if (value === "") delete customFields[columnKey];
+  else customFields[columnKey] = value;
+  await prisma.prospect.update({ where: { id }, data: { customFields } });
   revalidatePath("/prospects");
 }
 
@@ -742,33 +794,94 @@ export async function deleteProspect(id: string) {
   revalidatePath("/prospects");
 }
 
-// Copies a prospect's known fields into a real Lead (starting the outreach pipeline for it), and
-// stamps convertedLeadId so the prospects table shows it as converted and offers "View lead"
-// instead of "Convert" from then on.
-export async function convertProspectToLead(id: string) {
-  const prospect = await prisma.prospect.findUniqueOrThrow({ where: { id } });
-  if (prospect.convertedLeadId) return prospect.convertedLeadId;
-
-  const firstEmail = prospect.emails?.split(",").map((e) => e.trim()).find(Boolean) || null;
-
-  const lead = await prisma.lead.create({
-    data: {
-      businessName: prospect.businessName,
-      email: firstEmail,
-      phone: prospect.phone,
-      website: prospect.website,
-      address: prospect.address,
-      notes: prospect.notes,
-      emails: { create: [{ order: 0, hasSubject: true, subject: "", body: "" }] },
-    },
-  });
-
-  await prisma.prospect.update({ where: { id }, data: { convertedLeadId: lead.id } });
-
+export async function bulkDeleteProspects(ids: string[]) {
+  if (ids.length === 0) return;
+  await prisma.prospect.deleteMany({ where: { id: { in: ids } } });
   revalidatePath("/prospects");
-  revalidatePath("/leads");
-  return lead.id;
 }
+
+// --- Columns (Notion-database style: built-in fields + ad-hoc ProspectColumn rows) ---
+
+function slugifyColumnKey(label: string): string {
+  const base = label
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return base || "column";
+}
+
+export async function createProspectColumn(label: string, type: "TEXT" | "NUMBER" = "TEXT") {
+  const base = slugifyColumnKey(label);
+  let key = base;
+  let n = 1;
+  while (await prisma.prospectColumn.findUnique({ where: { key } })) {
+    key = `${base}_${++n}`;
+  }
+  const column = await prisma.prospectColumn.create({ data: { key, label: label || "New column", type } });
+  await appendToColumnOrder(column.key);
+  revalidatePath("/prospects");
+  return column;
+}
+
+export async function createProspectColumnsBulk(labels: string[], type: "TEXT" | "NUMBER" = "TEXT") {
+  const created = [];
+  for (const label of labels) {
+    if (!label.trim()) continue;
+    created.push(await createProspectColumn(label.trim(), type));
+  }
+  return created;
+}
+
+export async function renameProspectColumn(id: string, label: string) {
+  await prisma.prospectColumn.update({ where: { id }, data: { label: label || "Untitled column" } });
+  revalidatePath("/prospects");
+}
+
+export async function deleteProspectColumn(id: string) {
+  const column = await prisma.prospectColumn.findUniqueOrThrow({ where: { id } });
+  await prisma.prospectColumn.delete({ where: { id } });
+  await removeFromColumnOrder(column.key);
+  revalidatePath("/prospects");
+}
+
+async function getBoardSettings() {
+  return prisma.prospectBoardSettings.upsert({
+    where: { id: "singleton" },
+    create: { id: "singleton", columnOrder: [] },
+    update: {},
+  });
+}
+
+async function appendToColumnOrder(key: string) {
+  const settings = await getBoardSettings();
+  if (settings.columnOrder.includes(key)) return;
+  await prisma.prospectBoardSettings.update({
+    where: { id: "singleton" },
+    data: { columnOrder: [...settings.columnOrder, key] },
+  });
+}
+
+async function removeFromColumnOrder(key: string) {
+  const settings = await getBoardSettings();
+  await prisma.prospectBoardSettings.update({
+    where: { id: "singleton" },
+    data: { columnOrder: settings.columnOrder.filter((k) => k !== key) },
+  });
+}
+
+// Full reorder — pass the complete ordered list of column keys (built-in field names + custom
+// column keys mixed together), as dragged/reordered in the "Manage columns" panel.
+export async function reorderProspectColumns(order: string[]) {
+  await prisma.prospectBoardSettings.upsert({
+    where: { id: "singleton" },
+    create: { id: "singleton", columnOrder: order },
+    update: { columnOrder: order },
+  });
+  revalidatePath("/prospects");
+}
+
+// --- CSV import ---
 
 // Bulk CSV import for prospects — expects the google-maps-scraper-kit column layout
 // (title,phone,emails,website,category,address,review_rating,review_count) but tolerates any
@@ -791,6 +904,7 @@ export async function importProspectsCsv(rows: string[][]) {
   const reviewCountCol = col("review_count", "reviewcount");
 
   const dataRows = rows.slice(1).filter((r) => r[titleCol]?.trim());
+  let order = await nextProspectOrder();
 
   let created = 0;
   for (const row of dataRows) {
@@ -800,7 +914,7 @@ export async function importProspectsCsv(rows: string[][]) {
     const rating = ratingCol !== -1 ? parseFloat(row[ratingCol]) : NaN;
     const reviewCount = reviewCountCol !== -1 ? parseInt(row[reviewCountCol], 10) : NaN;
 
-    await prisma.prospect.create({
+    const prospect = await prisma.prospect.create({
       data: {
         businessName,
         phone: phoneCol !== -1 ? row[phoneCol]?.trim() || null : null,
@@ -811,11 +925,50 @@ export async function importProspectsCsv(rows: string[][]) {
         rating: Number.isFinite(rating) ? rating : null,
         reviewCount: Number.isFinite(reviewCount) ? reviewCount : null,
         source: "csv-import",
+        order: order++,
       },
     });
+    await seedProspectChecklist(prospect.id);
     created++;
   }
 
   revalidatePath("/prospects");
   return { created };
 }
+
+// --- Checklist (per-prospect, seeded from DEFAULT_PROSPECT_CHECKLIST, fully editable after) ---
+
+export async function getProspectChecklist(prospectId: string) {
+  return prisma.prospectChecklistItem.findMany({ where: { prospectId }, orderBy: { order: "asc" } });
+}
+
+export async function addChecklistItem(prospectId: string, section: string, text: string) {
+  const last = await prisma.prospectChecklistItem.findFirst({
+    where: { prospectId },
+    orderBy: { order: "desc" },
+    select: { order: true },
+  });
+  const item = await prisma.prospectChecklistItem.create({
+    data: { prospectId, section: section || "Checklist", text, order: (last?.order ?? 0) + 1 },
+  });
+  revalidatePath("/prospects");
+  return item;
+}
+
+export async function updateChecklistItem(id: string, data: { text?: string; checked?: boolean; section?: string }) {
+  await prisma.prospectChecklistItem.update({
+    where: { id },
+    data: {
+      ...(data.text !== undefined ? { text: data.text } : {}),
+      ...(data.checked !== undefined ? { checked: data.checked } : {}),
+      ...(data.section !== undefined ? { section: data.section } : {}),
+    },
+  });
+  revalidatePath("/prospects");
+}
+
+export async function deleteChecklistItem(id: string) {
+  await prisma.prospectChecklistItem.delete({ where: { id } });
+  revalidatePath("/prospects");
+}
+
