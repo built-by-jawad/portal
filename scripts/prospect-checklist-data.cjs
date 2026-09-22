@@ -1,11 +1,4 @@
-// Default qualification checklist seeded onto every new Prospect (manual add, CSV import, or
-// bulk-add). Purely a starting point — every item is editable/deletable and new items/sections
-// can be added per prospect from the drawer, none of this is enforced structure.
-//
-// Items whose text starts with "ℹ️ " are rendered as plain info notes (no checkbox) in the
-// drawer — they carry the "when to check this" / "what passing this section means" guidance
-// from the source checklist, which isn't itself a checkable line item.
-export const DEFAULT_PROSPECT_CHECKLIST: { section: string; text: string }[] = [
+module.exports = [
   {
     section: "1. Independence — check this first, always",
     text: "ℹ️ When to check it: Before anything else. If a business fails here, stop — don't waste time on sections 2-4.",
