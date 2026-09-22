@@ -14,35 +14,35 @@ datasource db {
 // started on SQLite (no enum support) and there was no reason to churn it when moving to Postgres.
 
 model Lead {
-  id            String   @id @default(cuid())
-  businessName  String
-  contactName   String?
-  email         String?
+  id              String        @id @default(cuid())
+  businessName    String
+  contactName     String?
+  email           String?
   // Extra email addresses for this lead beyond the primary `email` (e.g. a second contact) —
   // reference/display only, sending and inbox scoping still use the primary `email` field.
-  secondaryEmails String[] @default([])
-  phone         String?
-  website       String?
-  address       String?
-  trade         String   @default("OTHER")
-  status        String   @default("NEW")
-  leakNotes     String?
-  notes         String?
+  secondaryEmails String[]      @default([])
+  phone           String?
+  website         String?
+  address         String?
+  trade           String        @default("OTHER")
+  status          String        @default("NEW")
+  leakNotes       String?
+  notes           String?
   // Which connected Gmail account sends this lead's sequence. Null = use the default account.
-  sendAccountId String?
-  sendAccount   EmailAccount? @relation(fields: [sendAccountId], references: [id], onDelete: SetNull)
+  sendAccountId   String?
+  sendAccount     EmailAccount? @relation(fields: [sendAccountId], references: [id], onDelete: SetNull)
   // Social platforms this lead is active on (values from src/lib/constants.ts SOCIAL_PLATFORMS,
   // e.g. INSTAGRAM/FACEBOOK/LINKEDIN). Adding a platform seeds a 7-day EngagementDay checklist for it.
-  socialPlatforms String[] @default([])
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  socialPlatforms String[]      @default([])
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
-  emails          EmailStepRecord[]
-  engagementDays  EngagementDay[]
-  tasks           Task[]
-  files           LeadFile[]
-  clientUpdates   ClientUpdate[]
-  questions       ClientQuestion[]
+  emails         EmailStepRecord[]
+  engagementDays EngagementDay[]
+  tasks          Task[]
+  files          LeadFile[]
+  clientUpdates  ClientUpdate[]
+  questions      ClientQuestion[]
 }
 
 // Files (screenshots, PDFs, etc.) attached directly to a lead, separate from email attachments —
@@ -233,6 +233,27 @@ model Idea {
   starred   Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Raw, unqualified business data (usually pulled in bulk from the Google Maps scraper, sometimes
+// added by hand) — a spreadsheet/database of businesses that are NOT leads yet. Nothing here has
+// been vetted or had outreach started. "Convert to lead" copies the relevant fields into a real
+// Lead and stamps convertedLeadId so the row shows as converted and won't be converted again.
+model Prospect {
+  id              String   @id @default(cuid())
+  businessName    String
+  phone           String?
+  emails          String?
+  website         String?
+  category        String?
+  address         String?
+  rating          Float?
+  reviewCount     Int?
+  notes           String?
+  source          String?
+  convertedLeadId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 // A stored content script (call script, video/reel script, email script, etc.) — free-text title,

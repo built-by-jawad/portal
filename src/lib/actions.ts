@@ -681,3 +681,141 @@ export async function deleteIdea(id: string) {
   revalidatePath("/ideas");
   redirect("/ideas");
 }
+
+// Prospects: raw, unvetted business data (bulk-imported or added by hand) that hasn't become a
+// lead yet. See prisma/schema.prisma Prospect model for field meanings.
+export async function createProspect(data: {
+  businessName: string;
+  phone?: string;
+  emails?: string;
+  website?: string;
+  category?: string;
+  address?: string;
+  rating?: number | null;
+  reviewCount?: number | null;
+  notes?: string;
+  source?: string;
+}) {
+  const prospect = await prisma.prospect.create({
+    data: {
+      businessName: data.businessName || "Untitled business",
+      phone: data.phone || null,
+      emails: data.emails || null,
+      website: data.website || null,
+      category: data.category || null,
+      address: data.address || null,
+      rating: data.rating ?? null,
+      reviewCount: data.reviewCount ?? null,
+      notes: data.notes || null,
+      source: data.source || null,
+    },
+  });
+  revalidatePath("/prospects");
+  return prospect;
+}
+
+const PROSPECT_FIELD_WHITELIST = new Set([
+  "businessName",
+  "phone",
+  "emails",
+  "website",
+  "category",
+  "address",
+  "notes",
+]);
+
+// Single-cell edit, used by the spreadsheet-style /prospects table (save on blur, one field at a time).
+export async function updateProspectField(id: string, field: string, value: string) {
+  if (!PROSPECT_FIELD_WHITELIST.has(field)) throw new Error(`Field not editable: ${field}`);
+  await prisma.prospect.update({ where: { id }, data: { [field]: value || null } });
+  revalidatePath("/prospects");
+}
+
+export async function updateProspectNumberField(id: string, field: "rating" | "reviewCount", value: string) {
+  const num = value.trim() === "" ? null : field === "rating" ? parseFloat(value) : parseInt(value, 10);
+  await prisma.prospect.update({ where: { id }, data: { [field]: Number.isFinite(num as number) ? num : null } });
+  revalidatePath("/prospects");
+}
+
+export async function deleteProspect(id: string) {
+  await prisma.prospect.delete({ where: { id } });
+  revalidatePath("/prospects");
+}
+
+// Copies a prospect's known fields into a real Lead (starting the outreach pipeline for it), and
+// stamps convertedLeadId so the prospects table shows it as converted and offers "View lead"
+// instead of "Convert" from then on.
+export async function convertProspectToLead(id: string) {
+  const prospect = await prisma.prospect.findUniqueOrThrow({ where: { id } });
+  if (prospect.convertedLeadId) return prospect.convertedLeadId;
+
+  const firstEmail = prospect.emails?.split(",").map((e) => e.trim()).find(Boolean) || null;
+
+  const lead = await prisma.lead.create({
+    data: {
+      businessName: prospect.businessName,
+      email: firstEmail,
+      phone: prospect.phone,
+      website: prospect.website,
+      address: prospect.address,
+      notes: prospect.notes,
+      emails: { create: [{ order: 0, hasSubject: true, subject: "", body: "" }] },
+    },
+  });
+
+  await prisma.prospect.update({ where: { id }, data: { convertedLeadId: lead.id } });
+
+  revalidatePath("/prospects");
+  revalidatePath("/leads");
+  return lead.id;
+}
+
+// Bulk CSV import for prospects — expects the google-maps-scraper-kit column layout
+// (title,phone,emails,website,category,address,review_rating,review_count) but tolerates any
+// subset/order of those headers by name, case-insensitively.
+export async function importProspectsCsv(rows: string[][]) {
+  if (rows.length === 0) return { created: 0 };
+
+  const header = rows[0].map((h) => h.trim().toLowerCase());
+  const col = (...names: string[]) => names.map((n) => header.indexOf(n)).find((i) => i !== -1) ?? -1;
+
+  const titleCol = col("title", "businessname", "business name", "name");
+  if (titleCol === -1) throw new Error('CSV must have a "title" (or "businessName") column');
+
+  const phoneCol = col("phone");
+  const emailsCol = col("emails", "email");
+  const websiteCol = col("website");
+  const categoryCol = col("category");
+  const addressCol = col("address");
+  const ratingCol = col("review_rating", "rating");
+  const reviewCountCol = col("review_count", "reviewcount");
+
+  const dataRows = rows.slice(1).filter((r) => r[titleCol]?.trim());
+
+  let created = 0;
+  for (const row of dataRows) {
+    const businessName = row[titleCol]?.trim();
+    if (!businessName) continue;
+
+    const rating = ratingCol !== -1 ? parseFloat(row[ratingCol]) : NaN;
+    const reviewCount = reviewCountCol !== -1 ? parseInt(row[reviewCountCol], 10) : NaN;
+
+    await prisma.prospect.create({
+      data: {
+        businessName,
+        phone: phoneCol !== -1 ? row[phoneCol]?.trim() || null : null,
+        emails: emailsCol !== -1 ? row[emailsCol]?.trim() || null : null,
+        website: websiteCol !== -1 ? row[websiteCol]?.trim() || null : null,
+        category: categoryCol !== -1 ? row[categoryCol]?.trim() || null : null,
+        address: addressCol !== -1 ? row[addressCol]?.trim() || null : null,
+        rating: Number.isFinite(rating) ? rating : null,
+        reviewCount: Number.isFinite(reviewCount) ? reviewCount : null,
+        source: "csv-import",
+      },
+    });
+    created++;
+  }
+
+  revalidatePath("/prospects");
+  return { created };
+}

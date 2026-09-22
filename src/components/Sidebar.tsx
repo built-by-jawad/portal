@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { href: "/calendar", label: "Outreach Calendar", icon: "◷" },
   { href: "/tasks", label: "Tasks", icon: "◫" },
   { href: "/engagement", label: "Engagement", icon: "◎" },
+  { href: "/prospects", label: "Prospects", icon: "▦" },
   { href: "/leads", label: "Leads", icon: "☰" },
   { href: "/clients", label: "Clients", icon: "◆" },
   { href: "/client-updates", label: "Client Updates", icon: "✎" },
