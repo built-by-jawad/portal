@@ -35,7 +35,7 @@ export default function TaskViewTabs({
             className={`flex-1 rounded-md px-3 py-1.5 text-center text-sm font-semibold transition ${
               isActive
                 ? isOverdue
-                  ? "bg-red-600 text-white"
+                  ? "bg-red-600 text-[#fff]"
                   : "bg-ink text-paper"
                 : isOverdue && overdueCount
                   ? "text-red-600 hover:bg-red-50"

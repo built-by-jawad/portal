@@ -3,7 +3,7 @@ import type { Lead } from "@prisma/client";
 import SecondaryEmailsField from "@/components/SecondaryEmailsField";
 import SocialPlatformsField from "@/components/SocialPlatformsField";
 
-export default function LeadFieldsSection({ lead }: { lead?: Lead }) {
+export default function LeadFieldsSection({ lead, isClient }: { lead?: Lead; isClient?: boolean }) {
   return (
     <>
       <div className="rounded-xl border border-mist/30 bg-white/60 p-4 shadow-sm sm:p-6">
@@ -40,10 +40,20 @@ export default function LeadFieldsSection({ lead }: { lead?: Lead }) {
               className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
             />
           </div>
-          <SocialPlatformsField initial={lead?.socialPlatforms ?? []} />
+          {isClient ? (
+            (lead?.socialPlatforms ?? []).map((p) => <input key={p} type="hidden" name="socialPlatforms" value={p} />)
+          ) : (
+            <SocialPlatformsField initial={lead?.socialPlatforms ?? []} />
+          )}
         </div>
       </div>
 
+      {isClient ? (
+        <>
+          <input type="hidden" name="leakNotes" value={lead?.leakNotes ?? ""} />
+          <input type="hidden" name="notes" value={lead?.notes ?? ""} />
+        </>
+      ) : (
       <div className="rounded-xl border border-mist/30 bg-white/60 p-4 shadow-sm sm:p-6">
         <h2 className="font-display mb-4 text-sm font-bold uppercase tracking-wide text-slate">
           Leak &amp; Notes <span className="font-sans text-xs font-normal normal-case text-slate">(optional)</span>
@@ -72,6 +82,7 @@ export default function LeadFieldsSection({ lead }: { lead?: Lead }) {
           </div>
         </div>
       </div>
+      )}
     </>
   );
 }

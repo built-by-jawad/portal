@@ -11,14 +11,22 @@ import { useToast } from "@/components/ToastProvider";
 
 type Question = {
   id: string;
+  leadId: string;
+  clientName: string;
   question: string;
   answer: string | null;
   resolvedAt: Date | null;
 };
 
-// A running "things to ask this client" list on their lead page — jot a question down, tick it
+// A running "things to ask clients" list on /questions — jot a question down, tick it
 // off (with the answer, if worth keeping) once it's actually been asked and answered.
-export default function ClientQuestions({ leadId, questions }: { leadId: string; questions: Question[] }) {
+export default function ClientQuestions({
+  clients,
+  questions,
+}: {
+  clients: { id: string; businessName: string }[];
+  questions: Question[];
+}) {
   const [isPending, startTransition] = useTransition();
   const notify = useToast();
   const formRef = useRef<HTMLFormElement>(null);
@@ -28,6 +36,8 @@ export default function ClientQuestions({ leadId, questions }: { leadId: string;
 
   function addQuestion(formData: FormData) {
     startTransition(async () => {
+      const leadId = String(formData.get("leadId") || "");
+      if (!leadId) return;
       await createClientQuestion(leadId, formData);
       notify("Added");
       formRef.current?.reset();
@@ -36,13 +46,22 @@ export default function ClientQuestions({ leadId, questions }: { leadId: string;
 
   return (
     <div>
-      <h2 className="font-display mb-3 text-lg font-bold text-ink">Questions to ask client</h2>
-
       <form
         ref={formRef}
         action={addQuestion}
         className="mb-4 flex flex-col gap-2 sm:flex-row"
       >
+        <select
+          name="leadId"
+          required
+          className="rounded-lg border border-mist/40 bg-white px-3 py-2 text-sm text-ink focus:border-green focus:outline-none"
+        >
+          {clients.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.businessName}
+            </option>
+          ))}
+        </select>
         <input
           type="text"
           name="question"
@@ -68,7 +87,7 @@ export default function ClientQuestions({ leadId, questions }: { leadId: string;
           {open.length > 0 && (
             <ul className="divide-y divide-mist/20 rounded-xl border border-mist/30 bg-white/60 shadow-sm">
               {open.map((q) => (
-                <QuestionRow key={q.id} leadId={leadId} question={q} isPending={isPending} startTransition={startTransition} notify={notify} />
+                <QuestionRow key={q.id} question={q} isPending={isPending} startTransition={startTransition} notify={notify} />
               ))}
             </ul>
           )}
@@ -80,7 +99,7 @@ export default function ClientQuestions({ leadId, questions }: { leadId: string;
               </summary>
               <ul className="divide-y divide-mist/20 border-t border-mist/20">
                 {resolved.map((q) => (
-                  <QuestionRow key={q.id} leadId={leadId} question={q} isPending={isPending} startTransition={startTransition} notify={notify} />
+                  <QuestionRow key={q.id} question={q} isPending={isPending} startTransition={startTransition} notify={notify} />
                 ))}
               </ul>
             </details>
@@ -92,13 +111,11 @@ export default function ClientQuestions({ leadId, questions }: { leadId: string;
 }
 
 function QuestionRow({
-  leadId,
   question,
   isPending,
   startTransition,
   notify,
 }: {
-  leadId: string;
   question: Question;
   isPending: boolean;
   startTransition: (fn: () => Promise<void> | void) => void;
@@ -113,7 +130,7 @@ function QuestionRow({
           disabled={isPending}
           onChange={() =>
             startTransition(async () => {
-              await toggleClientQuestionResolved(question.id, leadId);
+              await toggleClientQuestionResolved(question.id, question.leadId);
               notify(question.resolvedAt ? "Reopened" : "Marked answered");
             })
           }
@@ -123,10 +140,11 @@ function QuestionRow({
           <p className={`text-sm font-medium ${question.resolvedAt ? "text-slate line-through" : "text-ink"}`}>
             {question.question}
           </p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-green">{question.clientName}</p>
           <form
             action={(formData) =>
               startTransition(async () => {
-                await updateClientQuestionAnswer(question.id, leadId, formData);
+                await updateClientQuestionAnswer(question.id, question.leadId, formData);
                 notify("Saved");
               })
             }
@@ -148,7 +166,7 @@ function QuestionRow({
           onClick={() => {
             if (!confirm("Delete this question?")) return;
             startTransition(async () => {
-              await deleteClientQuestion(question.id, leadId);
+              await deleteClientQuestion(question.id, question.leadId);
               notify("Deleted");
             });
           }}

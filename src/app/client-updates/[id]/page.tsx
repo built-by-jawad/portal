@@ -17,6 +17,7 @@ export default async function ClientUpdateDetailPage({
 
   const update = await prisma.clientUpdate.findUnique({
     where: { id },
+    relationLoadStrategy: "join",
     include: { lead: { select: { businessName: true } }, screenshots: { orderBy: { createdAt: "desc" } } },
   });
 

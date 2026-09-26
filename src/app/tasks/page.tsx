@@ -23,19 +23,25 @@ export default async function TasksPage({
 
   const pakistanToday = todayInTimeZone(PAKISTAN_TZ);
 
+  const doneTasksPromise =
+    view === "done"
+      ? prisma.task.findMany({
+          where: { completedAt: { not: null } },
+          relationLoadStrategy: "join",
+          include: { lead: { select: { businessName: true } } },
+          orderBy: { completedAt: "desc" },
+        })
+      : null;
   const openTasks = await prisma.task.findMany({
     where: { completedAt: null },
+    relationLoadStrategy: "join",
     include: { lead: { select: { businessName: true } } },
     orderBy: { dueDate: "asc" },
   });
   const overdueCount = openTasks.filter((t) => t.dueDate && t.dueDate < pakistanToday).length;
 
   if (view === "done") {
-    const doneTasks = await prisma.task.findMany({
-      where: { completedAt: { not: null } },
-      include: { lead: { select: { businessName: true } } },
-      orderBy: { completedAt: "desc" },
-    });
+    const doneTasks = await doneTasksPromise!;
 
     return (
       <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 md:py-10">

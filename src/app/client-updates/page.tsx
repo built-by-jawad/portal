@@ -19,7 +19,7 @@ export default async function ClientUpdatesPage({
   const today = todayInTimeZone(PAKISTAN_TZ);
   const anchor = rawAnchor || today;
 
-  const clients = await prisma.lead.findMany({
+  const clientsPromise = prisma.lead.findMany({
     where: { status: "BOOKED" },
     select: { id: true, businessName: true },
     orderBy: { businessName: "asc" },
@@ -39,14 +39,16 @@ export default async function ClientUpdatesPage({
     dateTo = rawTo || null;
   }
 
-  const updates = await prisma.clientUpdate.findMany({
+  const updatesPromise = prisma.clientUpdate.findMany({
     where: {
       leadId: leadId || undefined,
       date: dateFrom && dateTo ? { gte: dateFrom, lte: dateTo } : undefined,
     },
+    relationLoadStrategy: "join",
     include: { lead: { select: { businessName: true } }, screenshots: { select: { id: true } } },
     orderBy: { date: "desc" },
   });
+  const [clients, updates] = await Promise.all([clientsPromise, updatesPromise]);
 
   function viewHref(v: string) {
     const params = new URLSearchParams();

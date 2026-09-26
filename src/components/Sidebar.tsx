@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: "◧" },
@@ -12,6 +13,7 @@ const NAV_ITEMS = [
   { href: "/prospects", label: "Prospects", icon: "▦" },
   { href: "/leads", label: "Leads", icon: "☰" },
   { href: "/clients", label: "Clients", icon: "◆" },
+  { href: "/questions", label: "Questions", icon: "?" },
   { href: "/client-updates", label: "Client Updates", icon: "✎" },
   { href: "/scripts", label: "Scripts", icon: "▤" },
   { href: "/ideas", label: "Ideas", icon: "✦" },
@@ -48,7 +50,7 @@ export default function Sidebar() {
   return (
     <>
       {/* Mobile top bar */}
-      <div className="flex items-center justify-between bg-ink px-4 py-3 md:hidden print:hidden">
+      <div className="flex items-center justify-between bg-sidebar px-4 py-3 md:hidden print:hidden">
         <Link href="/" className="flex items-center gap-2" onClick={() => setOpen(false)}>
           <img
             src="/brand/builtbyjawad-wordmark-light.svg"
@@ -69,7 +71,7 @@ export default function Sidebar() {
       <aside
         className={`${open ? "flex" : "hidden"} md:flex ${
           collapsed ? "md:w-16" : "md:w-64"
-        } relative w-full shrink-0 flex-col bg-ink px-4 py-6 md:min-h-screen print:hidden ${
+        } relative w-full shrink-0 flex-col bg-sidebar px-4 py-6 md:min-h-screen print:hidden ${
           hydrated ? "transition-[width] duration-150" : ""
         }`}
       >
@@ -77,7 +79,7 @@ export default function Sidebar() {
           onClick={toggleCollapsed}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className="absolute -right-3 top-8 hidden h-6 w-6 items-center justify-center rounded-full border border-mist/30 bg-ink text-xs text-mist transition hover:text-paper md:flex"
+          className="absolute -right-3 top-8 hidden h-6 w-6 items-center justify-center rounded-full border border-mist/30 bg-sidebar text-xs text-mist transition hover:text-[#f7f5f0] md:flex"
         >
           {collapsed ? "›" : "‹"}
         </button>
@@ -88,7 +90,7 @@ export default function Sidebar() {
           onClick={() => setOpen(false)}
         >
           {collapsed ? (
-            <span className="font-display text-xl font-bold text-paper">b.</span>
+            <span className="font-display text-xl font-bold text-[#f7f5f0]">b.</span>
           ) : (
             <img
               src="/brand/builtbyjawad-wordmark-light.svg"
@@ -117,7 +119,7 @@ export default function Sidebar() {
               } ${
                 isActive(item.href)
                   ? "bg-green/15 text-green"
-                  : "text-mist hover:bg-white/5 hover:text-paper"
+                  : "text-mist hover:bg-white/5 hover:text-[#f7f5f0]"
               }`}
             >
               <span className="w-4 text-center">{item.icon}</span>
@@ -126,11 +128,12 @@ export default function Sidebar() {
           ))}
         </nav>
 
-        {!collapsed && (
-          <div className="mt-auto hidden pt-8 md:block">
-            <p className="text-xs text-slate">Found. Chosen. Booked.</p>
-          </div>
-        )}
+        <div className="mt-auto">
+          <ThemeToggle collapsed={collapsed} />
+          {!collapsed && (
+            <p className="mt-4 hidden text-xs text-slate md:block">Found. Chosen. Booked.</p>
+          )}
+        </div>
       </aside>
     </>
   );

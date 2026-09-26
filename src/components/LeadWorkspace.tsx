@@ -63,6 +63,7 @@ export default function LeadWorkspace({
   accounts,
   leadSendAccountId,
   records,
+  isClient = false,
 }: {
   lead: Lead;
   leadId: string;
@@ -70,6 +71,7 @@ export default function LeadWorkspace({
   accounts: EmailAccountOption[];
   leadSendAccountId: string | null;
   records: StepRecord[];
+  isClient?: boolean;
 }) {
   const googleConnected = accounts.length > 0;
   const defaultAccountId = accounts.find((a) => a.isDefault)?.id ?? accounts[0]?.id;
@@ -148,7 +150,7 @@ export default function LeadWorkspace({
 
       let anyAdjusted = false;
 
-      if (current) {
+      if (current && !isClient) {
         const result = await updateEmailStep(current.id, formData);
         if (result?.adjusted) anyAdjusted = true;
       }
@@ -180,6 +182,7 @@ export default function LeadWorkspace({
 
   return (
     <form ref={formRef} action={handleSaveAll} className="space-y-6">
+      {!isClient && (
       <div>
         <h2 className="font-display mb-4 text-lg font-bold text-ink">Emails</h2>
         <div className="rounded-xl border border-mist/30 bg-white/60 shadow-sm">
@@ -474,10 +477,11 @@ export default function LeadWorkspace({
           )}
         </div>
       </div>
+      )}
 
       <div>
         <h2 className="font-display mb-4 text-lg font-bold text-ink">Business details</h2>
-        <LeadFieldsSection lead={lead} />
+        <LeadFieldsSection lead={lead} isClient={isClient} />
       </div>
 
       <button

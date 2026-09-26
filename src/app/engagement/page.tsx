@@ -22,6 +22,7 @@ export default async function EngagementPage({
 
   const leads = await prisma.lead.findMany({
     where: { socialPlatforms: { isEmpty: false } },
+    relationLoadStrategy: "join",
     include: { engagementDays: true },
     orderBy: { createdAt: "desc" },
   });

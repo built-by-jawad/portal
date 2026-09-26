@@ -388,7 +388,7 @@ export default function ProspectsTable({
             <button
               type="button"
               onClick={deleteSelectedRows}
-              className="rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white transition hover:brightness-95"
+              className="rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-[#fff] transition hover:brightness-95"
             >
               Delete ({selectedRowIds.size})
             </button>

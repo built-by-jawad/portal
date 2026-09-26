@@ -25,11 +25,13 @@ export default async function DashboardPage() {
           sentAt: null,
           lead: { status: { notIn: ["BOOKED", "DEAD"] } },
         },
+        relationLoadStrategy: "join",
         include: { lead: true },
         orderBy: [{ lead: { createdAt: "asc" } }, { order: "asc" }],
       }),
       prisma.emailStepRecord.findMany({
         where: { sentAt: { not: null } },
+        relationLoadStrategy: "join",
         include: { lead: { select: { businessName: true } } },
         orderBy: { sentAt: "desc" },
       }),

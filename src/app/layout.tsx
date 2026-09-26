@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, Inter } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import Sidebar from "@/components/Sidebar";
 import AddFab from "@/components/AddFab";
@@ -28,8 +29,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={`${spaceGrotesk.variable} ${inter.variable} antialiased`}>
+        <Script id="theme-init" strategy="beforeInteractive">{`try{var t=localStorage.getItem("theme")||"system";if(t==="dark"||(t==="system"&&matchMedia("(prefers-color-scheme: dark)").matches))document.documentElement.classList.add("dark")}catch(e){}`}</Script>
         <ToastProvider>
           <div className="flex min-h-screen flex-col md:flex-row">
             <Sidebar />

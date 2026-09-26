@@ -35,6 +35,7 @@ export default async function CalendarPage({
       scheduledDate: { not: null },
       lead: { status: { notIn: ["BOOKED", "DEAD"] } },
     },
+    relationLoadStrategy: "join",
     include: { lead: { select: { id: true, businessName: true, email: true } } },
   });
 

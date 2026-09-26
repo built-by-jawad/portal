@@ -16,6 +16,7 @@ export default async function EngagementDetailPage({
 
   const lead = await prisma.lead.findUnique({
     where: { id },
+    relationLoadStrategy: "join",
     include: { engagementDays: { orderBy: [{ platform: "asc" }, { dayNumber: "asc" }] } },
   });
 

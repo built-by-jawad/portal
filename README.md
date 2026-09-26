@@ -7,7 +7,7 @@ Next.js app for running cold outreach: leads, an initial email draft, and as man
 ## Stack
 
 - Next.js 16 (App Router, Turbopack, Server Actions)
-- Prisma 5 + Postgres (Supabase project `Portal`, `uoevfpnpnaspzgqceddm`)
+- Prisma 5 + Postgres (Supabase project `portal-mumbai`, `ljwrlvgliqfelwkqrnsn` (moved from Seoul project `uoevfpnpnaspzgqceddm` on 2026-09-26))
 - Tailwind CSS v4
 - Gmail API (`googleapis`) via OAuth — Google Cloud project `builtbyjawad-portal`, its own project, separate from any other Google Workspace integration
 - Vercel Blob (`@vercel/blob`) for email attachment storage — store `portal-attachments` (public access), linked to the Vercel project
@@ -96,7 +96,7 @@ git add -A && git commit && git push
 - This sends nothing itself — it's a drafting/tracking tool. Copy the subject/body into whatever you actually send from (Gmail, etc.) and click "Mark as sent" here.
 - `DATABASE_URL` (port 6543, `pgbouncer=true`) is the pooled connection used at runtime. `DIRECT_URL` (port 5432) is the direct/session connection Prisma Migrate uses for schema changes — both are required in `.env` and are set on Vercel (Production/Preview/Development).
 - Vercel deployment protection is on by default for this project (private leads data) — that's intentional, not a bug.
-- `vercel.json` pins the serverless function region to `icn1` (Seoul), matching the Supabase database region (`ap-northeast-2`, also Seoul) — this is what keeps page navigation fast, since every page does a live query. Don't remove it without picking a replacement region close to wherever the database ends up.
+- `vercel.json` pins the serverless function region to `bom1` (Mumbai), matching the Supabase database region (`ap-south-1`, project `portal-mumbai`, moved from Seoul 2026-09-26) — this is what keeps page navigation fast, since every page does a live query. Don't remove it without picking a replacement region close to wherever the database ends up.
 - `loading.tsx` files under `src/app/`, `src/app/leads/`, and `src/app/leads/[id]/` show a skeleton instantly on navigation while the next page's data is still loading — keep these in sync if you restructure those routes.
 - Any new page that only reads the database (no `cookies()`/`headers()`/`searchParams`) needs `export const dynamic = "force-dynamic"` — otherwise Next.js prerenders it once at build time and serves that frozen snapshot forever (bit both Dashboard and the old Analytics page before this was added).
 - Gmail integration: OAuth client lives in Google Cloud project `builtbyjawad-portal` (its own project — not shared with any other Google Workspace tool), scopes `gmail.send` + `gmail.readonly`, redirect URI `$APP_URL/api/google/callback`. Tokens are stored per-account in the `EmailAccount` table, refreshed automatically by `googleapis`. Connecting a new account is just visiting `/api/google/connect` again while signed into a different Google account — each one becomes its own `EmailAccount` row.

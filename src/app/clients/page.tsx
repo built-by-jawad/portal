@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { clientSlugMap } from "@/lib/clients";
 import PageHeader from "@/components/PageHeader";
 import { TRADE_LABELS, type Trade } from "@/lib/constants";
 
@@ -13,6 +14,8 @@ export default async function ClientsPage() {
     where: { status: "BOOKED" },
     orderBy: { businessName: "asc" },
   });
+
+  const { idToSlug } = await clientSlugMap();
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 md:py-10">
@@ -30,7 +33,7 @@ export default async function ClientsPage() {
           {clients.map((client) => (
             <Link
               key={client.id}
-              href={`/leads/${client.id}`}
+              href={`/clients/${idToSlug.get(client.id)}`}
               className="rounded-xl border border-mist/30 bg-white/60 p-4 shadow-sm transition hover:border-green/50 hover:shadow-md sm:p-6"
             >
               <p className="font-display font-bold text-ink">{client.businessName}</p>

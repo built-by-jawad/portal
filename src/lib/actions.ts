@@ -235,6 +235,7 @@ export async function updateLead(id: string, formData: FormData) {
   await seedEngagementDays(id, newlyAdded);
 
   revalidatePath(`/leads/${id}`);
+  revalidatePath("/clients/[id]", "page");
   revalidatePath("/leads");
   revalidatePath("/engagement");
 }
@@ -253,6 +254,7 @@ export async function updateLeadSendAccount(leadId: string, sendAccountId: strin
   }
 
   revalidatePath(`/leads/${leadId}`);
+  revalidatePath("/clients/[id]", "page");
 }
 
 export async function deleteLead(id: string) {
@@ -264,6 +266,7 @@ export async function deleteLead(id: string) {
 export async function updateLeadStatus(id: string, status: string) {
   await prisma.lead.update({ where: { id }, data: { status } });
   revalidatePath(`/leads/${id}`);
+  revalidatePath("/clients/[id]", "page");
   revalidatePath("/leads");
 }
 
@@ -288,11 +291,13 @@ export async function addFollowup(leadId: string) {
   });
 
   revalidatePath(`/leads/${leadId}`);
+  revalidatePath("/clients/[id]", "page");
 }
 
 export async function removeEmailStep(leadId: string, recordId: string) {
   await prisma.emailStepRecord.delete({ where: { id: recordId } });
   revalidatePath(`/leads/${leadId}`);
+  revalidatePath("/clients/[id]", "page");
 }
 
 export async function updateEmailStep(recordId: string, formData: FormData) {
@@ -334,6 +339,7 @@ export async function updateEmailStep(recordId: string, formData: FormData) {
   }
 
   revalidatePath(`/leads/${record.leadId}`);
+  revalidatePath("/clients/[id]", "page");
   return { adjusted };
 }
 
@@ -349,6 +355,7 @@ export async function markEmailSent(leadId: string, recordId: string) {
   }
 
   revalidatePath(`/leads/${leadId}`);
+  revalidatePath("/clients/[id]", "page");
   revalidatePath("/leads");
   revalidatePath("/");
 }
@@ -360,6 +367,7 @@ export async function unmarkEmailSent(leadId: string, recordId: string) {
   });
 
   revalidatePath(`/leads/${leadId}`);
+  revalidatePath("/clients/[id]", "page");
   revalidatePath("/leads");
   revalidatePath("/");
 }
@@ -374,6 +382,7 @@ export async function deleteAttachment(leadId: string, attachmentId: string) {
     // best-effort — don't fail the removal over a storage cleanup error
   }
   revalidatePath(`/leads/${leadId}`);
+  revalidatePath("/clients/[id]", "page");
 }
 
 // Sends one email step via Gmail. accountId lets the caller pick which connected account to send
@@ -382,6 +391,7 @@ export async function sendEmailNow(leadId: string, recordId: string, accountId?:
   await performSend(leadId, recordId, accountId);
 
   revalidatePath(`/leads/${leadId}`);
+  revalidatePath("/clients/[id]", "page");
   revalidatePath("/leads");
   revalidatePath("/");
 }
@@ -427,6 +437,7 @@ export async function checkRepliesForLead(leadId: string) {
   }
 
   revalidatePath(`/leads/${leadId}`);
+  revalidatePath("/clients/[id]", "page");
   revalidatePath("/");
 }
 
@@ -631,6 +642,8 @@ export async function createClientQuestion(leadId: string, formData: FormData) {
 
   await prisma.clientQuestion.create({ data: { leadId, question } });
   revalidatePath(`/leads/${leadId}`);
+  revalidatePath("/clients/[id]", "page");
+  revalidatePath("/questions");
 }
 
 export async function toggleClientQuestionResolved(id: string, leadId: string) {
@@ -640,6 +653,8 @@ export async function toggleClientQuestionResolved(id: string, leadId: string) {
     data: { resolvedAt: q.resolvedAt ? null : new Date() },
   });
   revalidatePath(`/leads/${leadId}`);
+  revalidatePath("/clients/[id]", "page");
+  revalidatePath("/questions");
 }
 
 export async function updateClientQuestionAnswer(id: string, leadId: string, formData: FormData) {
@@ -648,11 +663,15 @@ export async function updateClientQuestionAnswer(id: string, leadId: string, for
     data: { answer: str(formData, "answer") },
   });
   revalidatePath(`/leads/${leadId}`);
+  revalidatePath("/clients/[id]", "page");
+  revalidatePath("/questions");
 }
 
 export async function deleteClientQuestion(id: string, leadId: string) {
   await prisma.clientQuestion.delete({ where: { id } });
   revalidatePath(`/leads/${leadId}`);
+  revalidatePath("/clients/[id]", "page");
+  revalidatePath("/questions");
 }
 
 // Creates the idea record the first time there's something worth saving (called once, from the
@@ -972,3 +991,25 @@ export async function deleteChecklistItem(id: string) {
   revalidatePath("/prospects");
 }
 
+
+export async function bulkUpdateLeadStatus(ids: string[], status: string) {
+  if (ids.length === 0) return;
+  await prisma.lead.updateMany({ where: { id: { in: ids } }, data: { status } });
+  revalidatePath("/leads");
+  revalidatePath("/clients");
+  revalidatePath("/leads/[id]", "page");
+  revalidatePath("/clients/[id]", "page");
+}
+
+export async function bulkDeleteLeads(ids: string[]) {
+  if (ids.length === 0) return;
+  await prisma.lead.deleteMany({ where: { id: { in: ids } } });
+  revalidatePath("/leads");
+  revalidatePath("/clients");
+}
+
+export async function deleteLeadNoRedirect(id: string) {
+  await prisma.lead.delete({ where: { id } });
+  revalidatePath("/leads");
+  revalidatePath("/clients");
+}

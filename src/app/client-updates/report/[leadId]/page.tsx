@@ -59,6 +59,7 @@ export default async function ClientUpdateReportPage({
 
   const updates = await prisma.clientUpdate.findMany({
     where: { leadId, date: { gte: dateFrom, lte: dateTo } },
+    relationLoadStrategy: "join",
     include: { screenshots: true },
     orderBy: { date: "asc" },
   });

@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import PageHeader from "@/components/PageHeader";
-import StatusBadge from "@/components/StatusBadge";
-import { LEAD_STATUS_LABELS, LEAD_STATUSES, TRADE_LABELS, type Trade } from "@/lib/constants";
+import LeadsList from "@/components/LeadsList";
+import { LEAD_STATUS_LABELS, LEAD_STATUSES } from "@/lib/constants";
 
 export default async function LeadsPage({
   searchParams,
@@ -10,10 +10,11 @@ export default async function LeadsPage({
   searchParams: Promise<{ status?: string }>;
 }) {
   const { status } = await searchParams;
-  const filter = status && (LEAD_STATUSES as readonly string[]).includes(status) ? status : undefined;
+  const leadStatuses = LEAD_STATUSES.filter((s) => s !== "BOOKED");
+  const filter = status && (leadStatuses as readonly string[]).includes(status) ? status : undefined;
 
   const leads = await prisma.lead.findMany({
-    where: filter ? { status: filter } : undefined,
+    where: filter ? { status: filter } : { status: { not: "BOOKED" } },
     orderBy: { createdAt: "desc" },
   });
 
@@ -33,7 +34,7 @@ export default async function LeadsPage({
         >
           All
         </Link>
-        {LEAD_STATUSES.map((s) => (
+        {leadStatuses.map((s) => (
           <Link
             key={s}
             href={`/leads?status=${s}`}
@@ -55,28 +56,7 @@ export default async function LeadsPage({
           .
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-mist/30 bg-white/60 shadow-sm">
-          <ul className="divide-y divide-mist/20">
-            {leads.map((lead) => (
-              <li key={lead.id}>
-                <Link
-                  href={`/leads/${lead.id}`}
-                  className="flex flex-col gap-2 px-4 py-4 transition hover:bg-paper sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold text-ink">{lead.businessName}</p>
-                    <p className="truncate text-xs text-slate">
-                      {TRADE_LABELS[(lead.trade as Trade) ?? "OTHER"]}
-                      {lead.address ? ` · ${lead.address}` : ""}
-                      {lead.contactName ? ` · ${lead.contactName}` : ""}
-                    </p>
-                  </div>
-                  <StatusBadge status={lead.status} />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <LeadsList leads={leads} />
       )}
     </div>
   );
