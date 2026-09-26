@@ -14,7 +14,7 @@ export default async function QuestionsPage() {
     prisma.clientQuestion.findMany({
       orderBy: { createdAt: "desc" },
       relationLoadStrategy: "join",
-      include: { lead: { select: { businessName: true } } },
+      include: { lead: { select: { businessName: true } }, media: { orderBy: { createdAt: "asc" } } },
     }),
   ]);
 

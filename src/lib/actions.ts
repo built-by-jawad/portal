@@ -618,11 +618,21 @@ export async function deleteClientUpdate(id: string) {
   redirect("/client-updates");
 }
 
-export async function createClientQuestion(leadId: string, formData: FormData) {
+export async function createClientQuestion(leadId: string, formData: FormData): Promise<string> {
   const question = str(formData, "question");
   if (!question) throw new Error("Question is required");
 
-  await prisma.clientQuestion.create({ data: { leadId, question } });
+  const created = await prisma.clientQuestion.create({ data: { leadId, question } });
+  revalidatePath(`/leads/${leadId}`);
+  revalidatePath("/clients/[id]", "page");
+  revalidatePath("/questions");
+  return created.id;
+}
+
+export async function updateClientQuestion(id: string, leadId: string, question: string, answer: string) {
+  const text = question.trim();
+  if (!text) throw new Error("Question is required");
+  await prisma.clientQuestion.update({ where: { id }, data: { question: text, answer: answer.trim() || null } });
   revalidatePath(`/leads/${leadId}`);
   revalidatePath("/clients/[id]", "page");
   revalidatePath("/questions");
