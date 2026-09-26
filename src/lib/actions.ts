@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { syncChannels, setOutreachStatus } from "@/lib/outreachActions";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { del } from "@vercel/blob";
@@ -34,32 +35,10 @@ function secondaryEmails(formData: FormData): string[] {
     .filter(Boolean);
 }
 
-function socialPlatforms(formData: FormData): string[] {
-  return formData
-    .getAll("socialPlatforms")
-    .filter((v): v is string => typeof v === "string" && (SOCIAL_PLATFORMS as readonly string[]).includes(v));
+function channelList(formData: FormData): string[] {
+  return formData.getAll("channels").filter((v): v is string => typeof v === "string");
 }
 
-// Seeds a 7-day engagement checklist for each newly-checked platform, starting today. Existing
-// platforms are left alone (createMany + skipDuplicates on the unique leadId/platform/dayNumber
-// constraint) so re-saving the lead form never resets progress already made.
-async function seedEngagementDays(leadId: string, platforms: string[]) {
-  if (platforms.length === 0) return;
-  const today = new Date();
-  const data = platforms.flatMap((platform) =>
-    Array.from({ length: ENGAGEMENT_DAYS }, (_, i) => {
-      const date = new Date(today);
-      date.setDate(date.getDate() + i);
-      return {
-        leadId,
-        platform,
-        dayNumber: i + 1,
-        date: date.toISOString().slice(0, 10),
-      };
-    })
-  );
-  await prisma.engagementDay.createMany({ data, skipDuplicates: true });
-}
 
 // After any change that could create or shift a same-account send-time collision (scheduling a
 // step, editing its time, or moving a lead to a different account), re-checks every not-yet-sent
@@ -165,7 +144,7 @@ export async function createLead(formData: FormData) {
   const draftEmails = parseDraftEmails(formData);
   const guessedTimezone = guessTimezoneFromAddress(address);
   const sendAccountId = str(formData, "sendAccountId");
-  const platforms = socialPlatforms(formData);
+  const channels = channelList(formData);
 
   const lead = await prisma.lead.create({
     data: {
@@ -180,7 +159,11 @@ export async function createLead(formData: FormData) {
       leakNotes: str(formData, "leakNotes"),
       notes: str(formData, "notes"),
       sendAccountId,
-      socialPlatforms: platforms,
+      city: str(formData, "city"),
+      state: str(formData, "state"),
+      instagram: str(formData, "instagram"),
+      facebook: str(formData, "facebook"),
+      linkedin: str(formData, "linkedin"),
       emails: {
         create: draftEmails.map((e, order) => ({
           order,
@@ -197,7 +180,7 @@ export async function createLead(formData: FormData) {
     },
   });
 
-  await seedEngagementDays(lead.id, platforms);
+  await syncChannels(lead.id, channels);
 
   const effectiveAccountId = sendAccountId || (await getDefaultAccountId());
   if (effectiveAccountId) {
@@ -211,10 +194,6 @@ export async function createLead(formData: FormData) {
 }
 
 export async function updateLead(id: string, formData: FormData) {
-  const existing = await prisma.lead.findUniqueOrThrow({ where: { id }, select: { socialPlatforms: true } });
-  const platforms = socialPlatforms(formData);
-  const newlyAdded = platforms.filter((p) => !existing.socialPlatforms.includes(p));
-
   await prisma.lead.update({
     where: { id },
     data: {
@@ -228,16 +207,19 @@ export async function updateLead(id: string, formData: FormData) {
       trade: str(formData, "trade") ?? "OTHER",
       leakNotes: str(formData, "leakNotes"),
       notes: str(formData, "notes"),
-      socialPlatforms: platforms,
+      city: str(formData, "city"),
+      state: str(formData, "state"),
+      instagram: str(formData, "instagram"),
+      facebook: str(formData, "facebook"),
+      linkedin: str(formData, "linkedin"),
     },
   });
 
-  await seedEngagementDays(id, newlyAdded);
+  if (formData.get("channelsForm")) await syncChannels(id, channelList(formData));
 
   revalidatePath(`/leads/${id}`);
   revalidatePath("/clients/[id]", "page");
   revalidatePath("/leads");
-  revalidatePath("/engagement");
 }
 
 export async function updateLeadSendAccount(leadId: string, sendAccountId: string) {
@@ -994,7 +976,7 @@ export async function deleteChecklistItem(id: string) {
 
 export async function bulkUpdateLeadStatus(ids: string[], status: string) {
   if (ids.length === 0) return;
-  await prisma.lead.updateMany({ where: { id: { in: ids } }, data: { status } });
+  for (const id of ids) await setOutreachStatus(id, status);
   revalidatePath("/leads");
   revalidatePath("/clients");
   revalidatePath("/leads/[id]", "page");

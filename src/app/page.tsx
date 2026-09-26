@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import OutreachFunnel from "@/components/OutreachFunnel";
 import PageHeader from "@/components/PageHeader";
 import StatusBadge from "@/components/StatusBadge";
 import { emailStepLabel } from "@/lib/constants";
@@ -89,6 +90,8 @@ export default async function DashboardPage() {
         title="Dashboard"
         description="Outreach at a glance — leads, follow-ups due, and how sent emails are performing."
       />
+
+      <OutreachFunnel />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
         {stats.map((s) => (

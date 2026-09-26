@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import StatusBadge from "@/components/StatusBadge";
-import { LEAD_STATUSES, LEAD_STATUS_LABELS, TRADE_LABELS, type Trade } from "@/lib/constants";
+import { OUTREACH_STATUSES, OUTREACH_STATUS_LABELS, type OutreachStatus } from "@/lib/outreach";
+import { TRADE_LABELS, type Trade } from "@/lib/constants";
 import { bulkDeleteLeads, bulkUpdateLeadStatus } from "@/lib/actions";
 
 type LeadRow = {
@@ -13,6 +13,7 @@ type LeadRow = {
   address: string | null;
   contactName: string | null;
   status: string;
+  outreachStatus: string;
 };
 
 export default function LeadsList({ leads }: { leads: LeadRow[] }) {
@@ -60,9 +61,9 @@ export default function LeadsList({ leads }: { leads: LeadRow[] }) {
               className="rounded-full border border-mist/40 bg-white px-3 py-1.5 text-xs font-semibold text-ink focus:border-green focus:outline-none disabled:opacity-50"
             >
               <option value="">Set status…</option>
-              {LEAD_STATUSES.map((s) => (
+              {OUTREACH_STATUSES.map((s) => (
                 <option key={s} value={s}>
-                  {LEAD_STATUS_LABELS[s]}
+                  {OUTREACH_STATUS_LABELS[s]}
                 </option>
               ))}
             </select>
@@ -100,7 +101,7 @@ export default function LeadsList({ leads }: { leads: LeadRow[] }) {
                 {lead.contactName ? ` · ${lead.contactName}` : ""}
               </p>
             </Link>
-            <StatusBadge status={lead.status} />
+            <span className="rounded-full bg-mist/20 px-2.5 py-1 text-xs font-semibold text-ink">{OUTREACH_STATUS_LABELS[lead.outreachStatus as OutreachStatus] ?? lead.outreachStatus}</span>
           </li>
         ))}
       </ul>

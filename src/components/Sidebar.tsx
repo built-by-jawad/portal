@@ -7,11 +7,9 @@ import ThemeToggle from "@/components/ThemeToggle";
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: "◧" },
-  { href: "/calendar", label: "Outreach Calendar", icon: "◷" },
+  { href: "/outreach", label: "Outreach", icon: "☰" },
   { href: "/tasks", label: "Tasks", icon: "◫" },
-  { href: "/engagement", label: "Engagement", icon: "◎" },
   { href: "/prospects", label: "Prospects", icon: "▦" },
-  { href: "/leads", label: "Leads", icon: "☰" },
   { href: "/clients", label: "Clients", icon: "◆" },
   { href: "/questions", label: "Questions", icon: "?" },
   { href: "/client-updates", label: "Client Updates", icon: "✎" },
@@ -45,7 +43,7 @@ export default function Sidebar() {
   }
 
   const isActive = (href: string) =>
-    href === "/" ? pathname === "/" : pathname.startsWith(href);
+    href === "/" ? pathname === "/" : pathname.startsWith(href) || (href === "/outreach" && pathname.startsWith("/leads"));
 
   return (
     <>

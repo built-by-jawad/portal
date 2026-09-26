@@ -17,7 +17,6 @@ export default function LeadSendAccountSelect({
 }) {
   const [isPending, startTransition] = useTransition();
   const notify = useToast();
-  if (accounts.length === 0) return null;
 
   return (
     <label className="flex items-center gap-2 text-xs font-medium text-slate">
@@ -40,6 +39,7 @@ export default function LeadSendAccountSelect({
           </option>
         ))}
       </select>
+      <a href="/settings" className="text-green hover:underline">+ Add email account</a>
     </label>
   );
 }

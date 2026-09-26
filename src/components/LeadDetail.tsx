@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import PageHeader from "@/components/PageHeader";
 import LeadWorkspace from "@/components/LeadWorkspace";
-import StatusSelect from "@/components/StatusSelect";
+import OutreachStatusSelect from "@/components/OutreachStatusSelect";
 import DeleteLeadButton from "@/components/DeleteLeadButton";
 import LeadInbox from "@/components/LeadInbox";
 import LeadSendAccountSelect from "@/components/LeadSendAccountSelect";
@@ -57,7 +57,7 @@ export default async function LeadDetail({
         description={lead.address ?? undefined}
         action={
           <div className="flex flex-wrap items-center gap-2">
-            <StatusSelect leadId={lead.id} status={lead.status} />
+            <OutreachStatusSelect leadId={lead.id} status={lead.outreachStatus} stopReason={lead.stopReason} />
             <DeleteLeadButton leadId={lead.id} />
           </div>
         }

@@ -1,7 +1,7 @@
 import { TRADES, TRADE_LABELS } from "@/lib/constants";
 import type { Lead } from "@prisma/client";
 import SecondaryEmailsField from "@/components/SecondaryEmailsField";
-import SocialPlatformsField from "@/components/SocialPlatformsField";
+import { CHANNELS, CHANNEL_LABELS } from "@/lib/outreach";
 
 export default function LeadFieldsSection({ lead, isClient }: { lead?: Lead; isClient?: boolean }) {
   return (
@@ -40,10 +40,24 @@ export default function LeadFieldsSection({ lead, isClient }: { lead?: Lead; isC
               className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
             />
           </div>
-          {isClient ? (
-            (lead?.socialPlatforms ?? []).map((p) => <input key={p} type="hidden" name="socialPlatforms" value={p} />)
-          ) : (
-            <SocialPlatformsField initial={lead?.socialPlatforms ?? []} />
+          <Field label="City" name="city" defaultValue={lead?.city ?? undefined} />
+          <Field label="State" name="state" defaultValue={lead?.state ?? undefined} />
+          <Field label="Instagram" name="instagram" defaultValue={lead?.instagram ?? undefined} placeholder="Profile link or handle" />
+          <Field label="Facebook" name="facebook" defaultValue={lead?.facebook ?? undefined} placeholder="Page link" />
+          <Field label="LinkedIn" name="linkedin" defaultValue={lead?.linkedin ?? undefined} placeholder="Profile link" />
+          {!isClient && (
+            <div className="sm:col-span-2">
+              <input type="hidden" name="channelsForm" value="1" />
+              <label className="mb-1.5 block text-sm font-medium text-ink">Channels active</label>
+              <div className="flex flex-wrap gap-4">
+                {CHANNELS.map((c) => (
+                  <label key={c} className="flex items-center gap-2 text-sm text-ink">
+                    <input type="checkbox" name="channels" value={c} defaultChecked={lead?.channels.includes(c)} />
+                    {CHANNEL_LABELS[c]}
+                  </label>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       </div>

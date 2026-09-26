@@ -35,9 +35,26 @@ model Lead {
   // Social platforms this lead is active on (values from src/lib/constants.ts SOCIAL_PLATFORMS,
   // e.g. INSTAGRAM/FACEBOOK/LINKEDIN). Adding a platform seeds a 7-day EngagementDay checklist for it.
   socialPlatforms String[]      @default([])
+  // Outreach tracker fields (owner name lives in contactName). `status` above is the legacy status,
+  // kept in sync from outreachStatus (see src/lib/outreach.ts) so older code keeps working.
+  city            String?
+  state           String?
+  instagram       String?
+  facebook        String?
+  linkedin        String?
+  channels        String[]      @default([])
+  outreachStatus  String        @default("NEW")
+  stopReason      String?
+  sequenceDone    Boolean       @default(false)
+  contactedAt     DateTime?
+  repliedAt       DateTime?
+  callBookedAt    DateTime?
+  teardownSentAt  DateTime?
+  wonAt           DateTime?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
+  sequences      OutreachSequence[]
   emails         EmailStepRecord[]
   engagementDays EngagementDay[]
   tasks          Task[]
@@ -305,4 +322,42 @@ model Script {
   content   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// One row per lead per channel (EMAIL / INSTAGRAM / FACEBOOK / LINKEDIN).
+model OutreachSequence {
+  id             String    @id @default(cuid())
+  leadId         String
+  lead           Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  channel        String
+  startDate      String
+  stepIndex      Int       @default(0)
+  lastTouchDate  String?
+  notes          String?
+  nextActionDate String?
+  decision       String?
+  repliedAt      DateTime?
+  done           Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([leadId, channel])
+}
+
+// Editable cadence lookup: which day (counted from the start date, day 1 = start date) each step happens.
+model CadenceStep {
+  id         String  @id @default(cuid())
+  channel    String
+  position   Int
+  day        Int
+  label      String  @default("")
+  isDecision Boolean @default(false)
+
+  @@unique([channel, position])
+}
+
+// After the last step, the sequence repeats every N days.
+model CadenceSetting {
+  channel     String @id
+  repeatEvery Int    @default(30)
 }
