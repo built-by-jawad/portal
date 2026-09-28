@@ -474,6 +474,7 @@ export async function updateTask(id: string, formData: FormData) {
     data: {
       title: str(formData, "title") ?? undefined,
       description: str(formData, "description"),
+      source: str(formData, "source"),
       leadId: str(formData, "leadId"),
       dueDate: str(formData, "dueDate"),
     },

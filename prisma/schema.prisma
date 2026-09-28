@@ -184,15 +184,30 @@ model EmailAccount {
 // calendar — date-only, no time of day. completedAt is set when marked done — done tasks stay in
 // the Done view, not deleted.
 model Task {
-  id          String    @id @default(cuid())
+  id          String     @id @default(cuid())
   title       String
   description String?
+  source      String?
   leadId      String?
-  lead        Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  lead        Lead?      @relation(fields: [leadId], references: [id], onDelete: SetNull)
   dueDate     String?
   completedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  media       TaskMedia[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model TaskMedia {
+  id          String   @id @default(cuid())
+  taskId      String
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  filename    String
+  url         String
+  size        Int
+  contentType String
+  createdAt   DateTime @default(now())
+
+  @@index([taskId])
 }
 
 // A logged unit of work done for a client (a Lead with status BOOKED) — powers the /client-updates

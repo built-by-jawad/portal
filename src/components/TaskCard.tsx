@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toggleTaskDone, deleteTask } from "@/lib/actions";
 import { useToast } from "@/components/ToastProvider";
+import TaskDetailModal from "@/components/TaskDetailModal";
 
 type Props = {
   id: string;
@@ -28,6 +29,7 @@ export default function TaskCard({
 }: Props) {
   const [isPending, startTransition] = useTransition();
   const notify = useToast();
+  const [open, setOpen] = useState(false);
 
   return (
     <div
@@ -37,10 +39,11 @@ export default function TaskCard({
           : "border-mist/30 bg-white/60"
       }`}
     >
+      {open && <TaskDetailModal taskId={id} onClose={() => setOpen(false)} />}
       <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
-        <div>
+        <button type="button" onClick={() => setOpen(true)} className="text-left">
           <p
-            className={`font-display font-bold ${
+            className={`font-display font-bold hover:underline ${
               completedAt ? "text-slate line-through" : overdue ? "text-red-700" : "text-ink"
             }`}
           >
@@ -52,14 +55,15 @@ export default function TaskCard({
               {overdue ? " · Overdue" : ""}
             </p>
           )}
-        </div>
+        </button>
         <div className="flex shrink-0 items-center gap-2">
-          <Link
-            href={`/tasks/${id}/edit`}
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
             className="rounded-lg border border-mist/40 px-2.5 py-1.5 text-xs font-semibold text-ink transition hover:bg-mist/10"
           >
-            Edit
-          </Link>
+            Open
+          </button>
           <button
             type="button"
             disabled={isPending}

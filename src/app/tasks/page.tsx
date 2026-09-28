@@ -2,7 +2,8 @@ import PageHeader from "@/components/PageHeader";
 import TaskViewTabs from "@/components/TaskViewTabs";
 import TaskImportExportBar from "@/components/TaskImportExportBar";
 import TaskCard from "@/components/TaskCard";
-import CalendarGrid, { type CalendarGridItem } from "@/components/CalendarGrid";
+import TaskCalendar from "@/components/TaskCalendar";
+import { type CalendarGridItem } from "@/components/CalendarGrid";
 import { prisma } from "@/lib/prisma";
 import { todayInTimeZone, isInView, type CalendarView } from "@/lib/scheduling";
 
@@ -134,7 +135,7 @@ export default async function TasksPage({
           action={<TaskImportExportBar />}
         />
         <TaskViewTabs current={view} overdueCount={overdueCount} />
-        <CalendarGrid view={view} todayStr={pakistanToday} items={gridItems} />
+        <TaskCalendar view={view} todayStr={pakistanToday} items={gridItems} />
         <p className="mt-3 text-xs text-slate">Tasks with no due date aren&apos;t shown on the calendar — see Today.</p>
       </div>
     );

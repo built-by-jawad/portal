@@ -28,10 +28,12 @@ export default function CalendarGrid({
   view,
   todayStr,
   items,
+  onItemClick,
 }: {
   view: "week" | "month";
   todayStr: string;
   items: CalendarGridItem[];
+  onItemClick?: (id: string) => void;
 }) {
   const dates = view === "week" ? getWeekDates(todayStr) : getMonthGridDates(todayStr);
   const currentMonth = todayStr.slice(0, 7);
@@ -81,18 +83,32 @@ export default function CalendarGrid({
                 {Number(date.slice(8, 10))}
               </p>
               <div className="space-y-1">
-                {shown.map((item) => (
-                  <Link
-                    key={item.id}
-                    href={item.href}
-                    className={`block truncate rounded px-1.5 py-0.5 text-xs font-medium ${
-                      ACCENT_CLASSES[item.accent ?? "ink"]
-                    }`}
-                    title={`${item.title}${item.subtitle ? ` · ${item.subtitle}` : ""}`}
-                  >
-                    {item.title}
-                  </Link>
-                ))}
+                {shown.map((item) =>
+                  onItemClick ? (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => onItemClick(item.id)}
+                      className={`block w-full truncate rounded px-1.5 py-0.5 text-left text-xs font-medium ${
+                        ACCENT_CLASSES[item.accent ?? "ink"]
+                      }`}
+                      title={`${item.title}${item.subtitle ? ` · ${item.subtitle}` : ""}`}
+                    >
+                      {item.title}
+                    </button>
+                  ) : (
+                    <Link
+                      key={item.id}
+                      href={item.href}
+                      className={`block truncate rounded px-1.5 py-0.5 text-xs font-medium ${
+                        ACCENT_CLASSES[item.accent ?? "ink"]
+                      }`}
+                      title={`${item.title}${item.subtitle ? ` · ${item.subtitle}` : ""}`}
+                    >
+                      {item.title}
+                    </Link>
+                  )
+                )}
                 {overflow > 0 && (
                   <p className="px-1.5 text-xs font-medium text-slate">+{overflow} more</p>
                 )}
