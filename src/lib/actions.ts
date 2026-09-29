@@ -524,6 +524,26 @@ export async function bulkDeleteTasks(ids: string[]) {
   revalidatePath("/tasks");
 }
 
+// Logs each selected task as a client update on its own client, so a batch of finished tasks can
+// be turned into progress-report entries in one go. Tasks with no client attached are skipped.
+export async function addTasksToClientUpdates(ids: string[], date: string) {
+  if (ids.length === 0) return { added: 0, skipped: 0 };
+  const tasks = await prisma.task.findMany({ where: { id: { in: ids } } });
+  const withClient = tasks.filter((t) => t.leadId);
+
+  await prisma.clientUpdate.createMany({
+    data: withClient.map((t) => ({
+      leadId: t.leadId!,
+      date,
+      taskName: t.title,
+      description: t.description,
+    })),
+  });
+
+  revalidatePath("/client-updates");
+  return { added: withClient.length, skipped: tasks.length - withClient.length };
+}
+
 export async function createScript(formData: FormData) {
   const title = str(formData, "title");
   const content = str(formData, "content");

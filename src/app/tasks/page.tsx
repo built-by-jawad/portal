@@ -1,7 +1,7 @@
 import PageHeader from "@/components/PageHeader";
 import TaskViewTabs from "@/components/TaskViewTabs";
 import TaskImportExportBar from "@/components/TaskImportExportBar";
-import TaskCard from "@/components/TaskCard";
+import TaskListSection from "@/components/TaskListSection";
 import TaskCalendar from "@/components/TaskCalendar";
 import { type CalendarGridItem } from "@/components/CalendarGrid";
 import { prisma } from "@/lib/prisma";
@@ -10,6 +10,20 @@ import { todayInTimeZone, isInView, type CalendarView } from "@/lib/scheduling";
 export const dynamic = "force-dynamic";
 
 const PAKISTAN_TZ = "Asia/Karachi";
+
+function toRow<T extends { id: string; title: string; description: string | null; leadId: string | null; dueDate: string | null; completedAt: Date | null; lead?: { businessName: string } | null }>(
+  t: T
+) {
+  return {
+    id: t.id,
+    title: t.title,
+    description: t.description,
+    leadId: t.leadId,
+    leadBusinessName: t.lead?.businessName ?? null,
+    dueDate: t.dueDate,
+    completedAt: t.completedAt,
+  };
+}
 
 export default async function TasksPage({
   searchParams,
@@ -58,20 +72,12 @@ export default async function TasksPage({
             Nothing marked done yet.
           </div>
         ) : (
-          <div className="space-y-4">
-            {doneTasks.map((t) => (
-              <TaskCard
-                key={t.id}
-                id={t.id}
-                title={t.title}
-                description={t.description}
-                leadId={t.leadId}
-                leadBusinessName={t.lead?.businessName ?? null}
-                dueDate={t.dueDate}
-                completedAt={t.completedAt}
-              />
-            ))}
-          </div>
+          <>
+            <p className="mb-3 text-xs text-slate">
+              Select tasks below to mark, delete, or log them as client updates in bulk — select just one to act on it alone.
+            </p>
+            <TaskListSection tasks={doneTasks.map(toRow)} showAddToUpdate />
+          </>
         )}
       </div>
     );
@@ -94,21 +100,7 @@ export default async function TasksPage({
             Nothing overdue. 🎉
           </div>
         ) : (
-          <div className="space-y-4">
-            {overdueTasks.map((t) => (
-              <TaskCard
-                key={t.id}
-                id={t.id}
-                title={t.title}
-                description={t.description}
-                leadId={t.leadId}
-                leadBusinessName={t.lead?.businessName ?? null}
-                dueDate={t.dueDate}
-                completedAt={t.completedAt}
-                overdue
-              />
-            ))}
-          </div>
+          <TaskListSection tasks={overdueTasks.map(toRow)} overdue />
         )}
       </div>
     );
@@ -155,40 +147,14 @@ export default async function TasksPage({
             Nothing due today.
           </div>
         ) : (
-          <div className="space-y-4">
-            {todaysTasks.map((t) => (
-              <TaskCard
-                key={t.id}
-                id={t.id}
-                title={t.title}
-                description={t.description}
-                leadId={t.leadId}
-                leadBusinessName={t.lead?.businessName ?? null}
-                dueDate={t.dueDate}
-                completedAt={t.completedAt}
-              />
-            ))}
-          </div>
+          <TaskListSection tasks={todaysTasks.map(toRow)} />
         )}
       </div>
 
       {noDueDateTasks.length > 0 && (
         <div>
           <h2 className="font-display mb-3 text-sm font-bold text-ink">No due date</h2>
-          <div className="space-y-4">
-            {noDueDateTasks.map((t) => (
-              <TaskCard
-                key={t.id}
-                id={t.id}
-                title={t.title}
-                description={t.description}
-                leadId={t.leadId}
-                leadBusinessName={t.lead?.businessName ?? null}
-                dueDate={t.dueDate}
-                completedAt={t.completedAt}
-              />
-            ))}
-          </div>
+          <TaskListSection tasks={noDueDateTasks.map(toRow)} />
         </div>
       )}
     </div>
