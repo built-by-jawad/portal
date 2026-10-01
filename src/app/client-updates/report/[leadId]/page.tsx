@@ -24,21 +24,22 @@ export default async function ClientUpdateReportPage({
   searchParams,
 }: {
   params: Promise<{ leadId: string }>;
-  searchParams: Promise<{ period?: string; anchor?: string }>;
+  searchParams: Promise<{ period?: string; anchor?: string; from?: string; to?: string }>;
 }) {
   const { leadId } = await params;
-  const { period: rawPeriod, anchor: rawAnchor } = await searchParams;
-  const period = rawPeriod === "month" ? "month" : "week";
+  const { period: rawPeriod, anchor: rawAnchor, from: rawFrom, to: rawTo } = await searchParams;
+  const period =
+    rawPeriod === "month" || rawPeriod === "all" || rawPeriod === "custom" ? rawPeriod : "week";
   const anchor = rawAnchor || todayInTimeZone(PAKISTAN_TZ);
 
   const lead = await prisma.lead.findUnique({ where: { id: leadId }, select: { id: true, businessName: true } });
   if (!lead) notFound();
 
-  let dateFrom: string;
-  let dateTo: string;
+  let dateFrom: string | null = null;
+  let dateTo: string | null = null;
   let title: string;
-  let prevHref: string;
-  let nextHref: string;
+  let prevHref: string | null = null;
+  let nextHref: string | null = null;
 
   if (period === "week") {
     const week = getWeekDatesMondayStart(anchor);
@@ -47,7 +48,7 @@ export default async function ClientUpdateReportPage({
     title = `Week of ${dateFrom} – ${dateTo}`;
     prevHref = `?period=week&anchor=${addDays(anchor, -7)}`;
     nextHref = `?period=week&anchor=${addDays(anchor, 7)}`;
-  } else {
+  } else if (period === "month") {
     const monthStr = anchor.slice(0, 7);
     dateFrom = `${monthStr}-01`;
     dateTo = `${monthStr}-31`;
@@ -55,10 +56,19 @@ export default async function ClientUpdateReportPage({
     title = `${MONTH_NAMES[m - 1]} ${y}`;
     prevHref = `?period=month&anchor=${shiftMonth(dateFrom, -1)}`;
     nextHref = `?period=month&anchor=${shiftMonth(dateFrom, 1)}`;
+  } else if (period === "custom") {
+    dateFrom = rawFrom || null;
+    dateTo = rawTo || null;
+    title = dateFrom && dateTo ? `${dateFrom} – ${dateTo}` : "Custom range";
+  } else {
+    title = "All time";
   }
 
   const updates = await prisma.clientUpdate.findMany({
-    where: { leadId, date: { gte: dateFrom, lte: dateTo } },
+    where: {
+      leadId,
+      date: dateFrom && dateTo ? { gte: dateFrom, lte: dateTo } : undefined,
+    },
     relationLoadStrategy: "join",
     include: { screenshots: true },
     orderBy: { date: "asc" },
@@ -71,12 +81,16 @@ export default async function ClientUpdateReportPage({
           ← All client updates
         </Link>
         <div className="flex items-center gap-2">
-          <Link href={prevHref} className="rounded-lg border border-mist/40 px-3 py-1.5 text-xs font-semibold text-ink hover:bg-mist/10">
-            ← Previous
-          </Link>
-          <Link href={nextHref} className="rounded-lg border border-mist/40 px-3 py-1.5 text-xs font-semibold text-ink hover:bg-mist/10">
-            Next →
-          </Link>
+          {prevHref && (
+            <Link href={prevHref} className="rounded-lg border border-mist/40 px-3 py-1.5 text-xs font-semibold text-ink hover:bg-mist/10">
+              ← Previous
+            </Link>
+          )}
+          {nextHref && (
+            <Link href={nextHref} className="rounded-lg border border-mist/40 px-3 py-1.5 text-xs font-semibold text-ink hover:bg-mist/10">
+              Next →
+            </Link>
+          )}
           <PrintReportButton />
         </div>
       </div>
@@ -88,7 +102,9 @@ export default async function ClientUpdateReportPage({
             <p className="mt-2 text-xs text-slate">Found. Chosen. Booked.</p>
           </div>
           <div className="text-right">
-            <p className="font-display text-lg font-bold text-ink">{period === "week" ? "Weekly" : "Monthly"} Progress Report</p>
+            <p className="font-display text-lg font-bold text-ink">
+              {period === "week" ? "Weekly" : period === "month" ? "Monthly" : period === "custom" ? "Custom" : "All-Time"} Progress Report
+            </p>
             <p className="text-sm text-slate">{title}</p>
           </div>
         </div>

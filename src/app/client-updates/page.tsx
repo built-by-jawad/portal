@@ -135,6 +135,22 @@ export default async function ClientUpdatesPage({
             Monthly report ↗
           </Link>
         )}
+        {leadId && view === "all" && (
+          <Link
+            href={`/client-updates/report/${leadId}?period=all`}
+            className="rounded-lg border border-mist/40 px-3 py-1.5 text-xs font-semibold text-ink transition hover:bg-mist/10"
+          >
+            All-time report ↗
+          </Link>
+        )}
+        {leadId && view === "custom" && dateFrom && dateTo && (
+          <Link
+            href={`/client-updates/report/${leadId}?period=custom&from=${dateFrom}&to=${dateTo}`}
+            className="rounded-lg border border-mist/40 px-3 py-1.5 text-xs font-semibold text-ink transition hover:bg-mist/10"
+          >
+            Custom report ↗
+          </Link>
+        )}
       </div>
 
       {updates.length === 0 ? (
