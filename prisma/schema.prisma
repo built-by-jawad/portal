@@ -32,9 +32,6 @@ model Lead {
   // Which connected Gmail account sends this lead's sequence. Null = use the default account.
   sendAccountId   String?
   sendAccount     EmailAccount? @relation(fields: [sendAccountId], references: [id], onDelete: SetNull)
-  // Social platforms this lead is active on (values from src/lib/constants.ts SOCIAL_PLATFORMS,
-  // e.g. INSTAGRAM/FACEBOOK/LINKEDIN). Adding a platform seeds a 7-day EngagementDay checklist for it.
-  socialPlatforms String[]      @default([])
   // Outreach tracker fields (owner name lives in contactName). `status` above is the legacy status,
   // kept in sync from outreachStatus (see src/lib/outreach.ts) so older code keeps working.
   city            String?
@@ -54,13 +51,13 @@ model Lead {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
-  sequences      OutreachSequence[]
-  emails         EmailStepRecord[]
-  engagementDays EngagementDay[]
-  tasks          Task[]
-  files          LeadFile[]
-  clientUpdates  ClientUpdate[]
-  questions      ClientQuestion[]
+  sequences          OutreachSequence[]
+  emails             EmailStepRecord[]
+  engagementProfiles EngagementProfile[]
+  tasks              Task[]
+  files              LeadFile[]
+  clientUpdates      ClientUpdate[]
+  questions          ClientQuestion[]
 }
 
 // Files (screenshots, PDFs, etc.) attached directly to a lead, separate from email attachments —
@@ -76,22 +73,39 @@ model LeadFile {
   createdAt   DateTime @default(now())
 }
 
-// One row per day of a 7-day "warm engagement" checklist for one lead on one platform (day 1..7).
-// Seeded automatically when a platform is added to Lead.socialPlatforms, starting from the day it
-// was added. `date` is the calendar day this check-in is planned for; `completedAt` is set when you
-// actually mark that day's engagement done. Powers both the /engagement cards and its calendar view.
+// One social profile being warmed up: a business name plus one platform's profile URL, either
+// added by hand on the Engagement page or imported from an outreach Lead's active channel (leadId
+// set in that case, so it's traceable back to the lead). Creating one seeds a 7-day EngagementDay
+// checklist for it, each day with a fixed action (see ENGAGEMENT_DAY_ACTIONS in src/lib/constants.ts).
+model EngagementProfile {
+  id           String   @id @default(cuid())
+  businessName String
+  leadId       String?
+  lead         Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  platform     String
+  profileUrl   String
+  // Preferred time of day to do the engagement, e.g. "09:00" — shown on every day card, optional.
+  time         String?
+  createdAt    DateTime @default(now())
+
+  days EngagementDay[]
+
+  @@index([leadId])
+}
+
+// One day (1..7) of an EngagementProfile's warm-up checklist. `date` is the calendar day this
+// check-in is planned for; `completedAt` is set when it's actually done. Shown as its own card on
+// the Engagement page (one card per profile per day).
 model EngagementDay {
-  id          String    @id @default(cuid())
-  leadId      String
-  lead        Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  platform    String
+  id          String            @id @default(cuid())
+  profileId   String
+  profile     EngagementProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
   dayNumber   Int
   date        String
-  note        String?
   completedAt DateTime?
-  createdAt   DateTime  @default(now())
+  createdAt   DateTime          @default(now())
 
-  @@unique([leadId, platform, dayNumber])
+  @@unique([profileId, dayNumber])
 }
 
 // One row per email in a lead's sequence (order 0 = initial email, 1+ = follow-ups).

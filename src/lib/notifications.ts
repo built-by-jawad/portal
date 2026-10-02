@@ -6,7 +6,7 @@ const PAKISTAN_TZ = "Asia/Karachi";
 
 export type ActionItems = {
   dueEmails: { leadId: string; businessName: string; label: string; date: string }[];
-  dueEngagement: { leadId: string; businessName: string; platform: string; dayNumber: number; date: string }[];
+  dueEngagement: { businessName: string; platform: string; dayNumber: number; date: string }[];
   dueTasks: { title: string; businessName: string | null; date: string }[];
 };
 
@@ -27,7 +27,7 @@ export async function getActionItems(): Promise<ActionItems> {
     }),
     prisma.engagementDay.findMany({
       where: { completedAt: null, date: { lte: today } },
-      include: { lead: { select: { id: true, businessName: true } } },
+      include: { profile: { select: { businessName: true, platform: true } } },
     }),
     prisma.task.findMany({
       where: { completedAt: null, dueDate: { lte: today } },
@@ -50,9 +50,8 @@ export async function getActionItems(): Promise<ActionItems> {
     }));
 
   const dueEngagement = engagementCandidates.map((d) => ({
-    leadId: d.leadId,
-    businessName: d.lead.businessName,
-    platform: d.platform,
+    businessName: d.profile.businessName,
+    platform: d.profile.platform,
     dayNumber: d.dayNumber,
     date: d.date,
   }));
