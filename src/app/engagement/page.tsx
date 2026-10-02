@@ -1,9 +1,11 @@
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import EngagementDayCard from "@/components/EngagementDayCard";
-import DeleteEngagementProfileButton from "@/components/DeleteEngagementProfileButton";
+import BusinessWarmupSection, { type BusinessGroup } from "@/components/BusinessWarmupSection";
 import { prisma } from "@/lib/prisma";
 import { todayInTimeZone, isInView, type CalendarView } from "@/lib/scheduling";
+import { engagementGroupKey } from "@/lib/engagementGroups";
+import type { SocialPlatform } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +42,20 @@ export default async function EngagementPage({
     view === "all" ? allDays : allDays.filter((d) => isInView(d.date, today, view));
 
   filtered.sort((a, b) => a.date.localeCompare(b.date) || a.businessName.localeCompare(b.businessName));
+
+  const groupMap = new Map<string, BusinessGroup>();
+  for (const p of profiles) {
+    const key = engagementGroupKey(p.leadId, p.businessName);
+    const done = p.days.filter((d) => d.completedAt).length;
+    const group = groupMap.get(key);
+    const entry = { platform: p.platform as SocialPlatform, profileUrl: p.profileUrl, done, total: p.days.length };
+    if (group) {
+      group.platforms.push(entry);
+    } else {
+      groupMap.set(key, { groupKey: key, businessName: p.businessName, time: p.time, platforms: [entry] });
+    }
+  }
+  const groups = Array.from(groupMap.values());
 
   function viewHref(v: string) {
     return `/engagement?view=${v}`;
@@ -108,28 +124,13 @@ export default async function EngagementPage({
         </div>
       )}
 
-      {profiles.length > 0 && (
+      {groups.length > 0 && (
         <div className="mt-10">
-          <h2 className="font-display mb-3 text-sm font-bold text-ink">Profiles being warmed up</h2>
-          <div className="space-y-2">
-            {profiles.map((p) => {
-              const done = p.days.filter((d) => d.completedAt).length;
-              return (
-                <div
-                  key={p.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-mist/30 bg-white/60 px-3 py-2 text-sm"
-                >
-                  <div className="min-w-0">
-                    <span className="font-semibold text-ink">{p.businessName}</span>
-                    <span className="ml-2 text-xs text-slate">
-                      {p.platform} · {done}/{p.days.length} days
-                    </span>
-                  </div>
-                  <DeleteEngagementProfileButton profileId={p.id} />
-                </div>
-              );
-            })}
-          </div>
+          <h2 className="font-display mb-3 text-sm font-bold text-ink">Businesses being warmed up</h2>
+          <p className="mb-3 text-xs text-slate">
+            Select a business to edit its platforms or remove it.
+          </p>
+          <BusinessWarmupSection groups={groups} />
         </div>
       )}
     </div>

@@ -511,8 +511,56 @@ export async function importEngagementFromLead(leadId: string) {
   return { imported };
 }
 
-export async function deleteEngagementProfile(profileId: string) {
-  await prisma.engagementProfile.delete({ where: { id: profileId } });
+// groupKey identifies "one business" across its platform rows: `lead:<leadId>` for imported
+// profiles, `name:<businessName>` for manually-added ones with no linked lead.
+function groupWhere(groupKey: string) {
+  if (groupKey.startsWith("lead:")) return { leadId: groupKey.slice(5) };
+  return { leadId: null, businessName: decodeURIComponent(groupKey.slice(5)) };
+}
+
+// Edits one business's platform set: updates URLs/renames on kept platforms, creates + seeds
+// newly-checked platforms, deletes unchecked ones (cascades their EngagementDay rows).
+export async function updateEngagementBusiness(formData: FormData) {
+  const groupKey = str(formData, "groupKey");
+  if (!groupKey) throw new Error("Missing groupKey");
+  const businessName = str(formData, "businessName");
+  if (!businessName) throw new Error("Business name is required");
+  const time = str(formData, "time");
+  const leadId = groupKey.startsWith("lead:") ? groupKey.slice(5) : null;
+
+  const existing = await prisma.engagementProfile.findMany({ where: groupWhere(groupKey) });
+  const existingByPlatform = new Map(existing.map((p) => [p.platform, p]));
+
+  for (const platform of SOCIAL_PLATFORMS) {
+    const current = existingByPlatform.get(platform);
+    const isChecked = checked(formData, `platform_${platform}`);
+    const profileUrl = str(formData, `url_${platform}`);
+
+    if (isChecked && profileUrl) {
+      if (current) {
+        await prisma.engagementProfile.update({
+          where: { id: current.id },
+          data: { businessName, profileUrl, time },
+        });
+      } else {
+        const profile = await prisma.engagementProfile.create({
+          data: { businessName, leadId, platform, profileUrl, time },
+        });
+        await seedEngagementDays(profile.id);
+      }
+    } else if (current) {
+      await prisma.engagementProfile.delete({ where: { id: current.id } });
+    }
+  }
+
+  revalidatePath("/engagement");
+  redirect("/engagement");
+}
+
+export async function deleteEngagementBusinesses(groupKeys: string[]) {
+  for (const groupKey of groupKeys) {
+    await prisma.engagementProfile.deleteMany({ where: groupWhere(groupKey) });
+  }
   revalidatePath("/engagement");
 }
 
