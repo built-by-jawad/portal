@@ -17,13 +17,24 @@ const NAV_ITEMS = [
   { href: "/scripts", label: "Scripts", icon: "▤" },
   { href: "/ideas", label: "Ideas", icon: "✦" },
   { href: "/inbox", label: "Inbox", icon: "✉" },
+  { href: "/expenses", label: "Expenses", icon: "$" },
+  { href: "/profiles", label: "Profiles", icon: "☺" },
   { href: "/settings", label: "Settings", icon: "⚙" },
 ];
 
 const COLLAPSE_KEY = "sidebar-collapsed";
 
-export default function Sidebar() {
+export default function Sidebar({
+  visibleHrefs,
+  profileName,
+  profileImageUrl,
+}: {
+  visibleHrefs: string[] | null;
+  profileName?: string;
+  profileImageUrl?: string | null;
+}) {
   const pathname = usePathname();
+  const items = visibleHrefs ? NAV_ITEMS.filter((item) => visibleHrefs.includes(item.href)) : NAV_ITEMS;
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -107,7 +118,7 @@ export default function Sidebar() {
         )}
 
         <nav className="flex flex-col gap-1">
-          {NAV_ITEMS.map((item) => (
+          {items.map((item) => (
             <Link
               key={item.href}
               href={item.href}
@@ -128,6 +139,27 @@ export default function Sidebar() {
         </nav>
 
         <div className="mt-auto">
+          {profileName && (
+            <div className={`mb-3 flex items-center gap-2 px-2 ${collapsed ? "justify-center" : ""}`}>
+              {profileImageUrl ? (
+                <img src={profileImageUrl} alt={profileName} className="h-7 w-7 rounded-full object-cover" />
+              ) : (
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-xs text-mist">
+                  {profileName.slice(0, 1).toUpperCase()}
+                </div>
+              )}
+              {!collapsed && (
+                <div className="flex-1 overflow-hidden">
+                  <p className="truncate text-xs font-medium text-[#f7f5f0]">{profileName}</p>
+                  <form action="/api/logout" method="post">
+                    <button type="submit" className="text-xs text-mist hover:text-[#f7f5f0]">
+                      Log out
+                    </button>
+                  </form>
+                </div>
+              )}
+            </div>
+          )}
           <ThemeToggle collapsed={collapsed} />
           {!collapsed && (
             <p className="mt-4 hidden text-xs text-slate md:block">Found. Chosen. Booked.</p>

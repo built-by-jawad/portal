@@ -404,3 +404,58 @@ model CadenceSetting {
   channel     String @id
   repeatEvery Int    @default(30)
 }
+
+// role "ADMIN" always has full view+edit on every page and isn't subject to ProfilePermission
+// rows; "MEMBER" is gated per page by ProfilePermission (see src/lib/permissions.ts for page keys).
+model Profile {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  imageUrl     String?
+  role         String   @default("MEMBER")
+  createdAt    DateTime @default(now())
+
+  permissions   ProfilePermission[]
+  expensesPaid  Expense[]      @relation("ExpensePaidBy")
+  expenseShares ExpenseShare[]
+}
+
+model ProfilePermission {
+  id        String  @id @default(cuid())
+  profileId String
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  page      String
+  canView   Boolean @default(false)
+  canEdit   Boolean @default(false)
+
+  @@unique([profileId, page])
+}
+
+// splitMode "EQUAL" divides amount evenly across its ExpenseShare rows; "CUSTOM" uses each
+// share's own amount as entered. adminOnly expenses carry no shares and are never visible
+// to non-admin profiles.
+model Expense {
+  id          String   @id @default(cuid())
+  description String
+  amount      Float
+  date        String
+  adminOnly   Boolean  @default(false)
+  splitMode   String   @default("EQUAL")
+  paidById    String?
+  paidBy      Profile? @relation("ExpensePaidBy", fields: [paidById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+
+  shares ExpenseShare[]
+}
+
+model ExpenseShare {
+  id        String  @id @default(cuid())
+  expenseId String
+  expense   Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  profileId String
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  amount    Float
+
+  @@unique([expenseId, profileId])
+}
