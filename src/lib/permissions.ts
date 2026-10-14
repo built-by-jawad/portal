@@ -13,7 +13,6 @@ export const PAGE_KEYS = [
   { key: "client-updates", href: "/client-updates", label: "Client Updates" },
   { key: "scripts", href: "/scripts", label: "Scripts" },
   { key: "ideas", href: "/ideas", label: "Ideas" },
-  { key: "inbox", href: "/inbox", label: "Inbox" },
   { key: "expenses", href: "/expenses", label: "Expenses" },
   { key: "profiles", href: "/profiles", label: "Profiles" },
   { key: "settings", href: "/settings", label: "Settings" },

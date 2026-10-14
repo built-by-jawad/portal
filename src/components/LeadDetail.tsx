@@ -1,19 +1,16 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import PageHeader from "@/components/PageHeader";
 import LeadWorkspace from "@/components/LeadWorkspace";
 import OutreachStatusSelect from "@/components/OutreachStatusSelect";
 import DeleteLeadButton from "@/components/DeleteLeadButton";
-import LeadInbox from "@/components/LeadInbox";
 import LeadSendAccountSelect from "@/components/LeadSendAccountSelect";
-import CheckRepliesButton from "@/components/CheckRepliesButton";
 import LeadFiles from "@/components/LeadFiles";
-import { getDefaultAccountId, listEmailAccounts } from "@/lib/google";
+import { listSenderEmails } from "@/lib/senderEmails";
 
 export function loadLeadShared() {
-  return Promise.all([listEmailAccounts(), getDefaultAccountId()]);
+  return listSenderEmails();
 }
 
 export default async function LeadDetail({
@@ -25,7 +22,7 @@ export default async function LeadDetail({
 }) {
   const { id } = await params;
 
-  const [lead, [accounts, defaultAccountId]] = await Promise.all([
+  const [lead, senderEmails] = await Promise.all([
     prisma.lead.findUnique({
       where: { id },
       relationLoadStrategy: "join",
@@ -38,8 +35,6 @@ export default async function LeadDetail({
   ]);
 
   if (!lead) notFound();
-
-  const inboxAccountId = lead.sendAccountId || defaultAccountId;
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 md:py-10">
@@ -65,25 +60,7 @@ export default async function LeadDetail({
 
       {lead.status !== "BOOKED" && (
         <div className="mb-6 flex flex-wrap items-center gap-3">
-          <LeadSendAccountSelect leadId={lead.id} accounts={accounts} value={lead.sendAccountId} />
-          <CheckRepliesButton leadId={lead.id} />
-        </div>
-      )}
-
-      {inboxAccountId && lead.email && (
-        <div className="mb-10">
-          <h2 className="font-display mb-4 text-lg font-bold text-ink">
-            Inbox <span className="font-sans text-xs font-normal text-slate">(only messages with {lead.email})</span>
-          </h2>
-          <Suspense
-            fallback={
-              <div className="rounded-xl border border-mist/30 bg-white/60 p-6 text-center text-sm text-slate">
-                Loading inbox…
-              </div>
-            }
-          >
-            <LeadInbox accountId={inboxAccountId} email={lead.email} />
-          </Suspense>
+          <LeadSendAccountSelect leadId={lead.id} senderEmails={senderEmails} value={lead.sendAccountId} />
         </div>
       )}
 
@@ -94,9 +71,6 @@ export default async function LeadDetail({
       <LeadWorkspace
         lead={lead}
         leadId={lead.id}
-        leadEmail={lead.email}
-        accounts={accounts}
-        leadSendAccountId={lead.sendAccountId}
         records={lead.emails}
         isClient={lead.status === "BOOKED"}
       />

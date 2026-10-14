@@ -4,23 +4,23 @@ import LeadFieldsSection from "@/components/LeadFieldsSection";
 import NewLeadEmailsBuilder from "@/components/NewLeadEmailsBuilder";
 import { createLead } from "@/lib/actions";
 
-type Account = { id: string; email: string; isDefault: boolean };
+type SenderEmail = { id: string; email: string; isDefault: boolean };
 
-export default function NewLeadForm({ accounts }: { accounts: Account[] }) {
+export default function NewLeadForm({ senderEmails }: { senderEmails: SenderEmail[] }) {
   return (
     <form action={createLead} className="space-y-6">
       <LeadFieldsSection />
 
-      {accounts.length > 0 && (
+      {senderEmails.length > 0 && (
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-ink">Send emails from</label>
+          <label className="mb-1.5 block text-sm font-medium text-ink">Shown as sent from</label>
           <select
             name="sendAccountId"
             defaultValue=""
             className="w-full max-w-sm rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
           >
-            <option value="">Default account</option>
-            {accounts.map((a) => (
+            <option value="">Default sender email</option>
+            {senderEmails.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.email}
               </option>

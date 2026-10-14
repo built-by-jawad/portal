@@ -31,7 +31,6 @@ export default async function CalendarPage({
 
   const candidates = await prisma.emailStepRecord.findMany({
     where: {
-      sentAt: null,
       scheduledDate: { not: null },
       lead: { status: { notIn: ["BOOKED", "DEAD"] } },
     },

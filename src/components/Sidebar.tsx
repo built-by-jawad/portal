@@ -16,7 +16,6 @@ const NAV_ITEMS = [
   { href: "/client-updates", label: "Client Updates", icon: "✎" },
   { href: "/scripts", label: "Scripts", icon: "▤" },
   { href: "/ideas", label: "Ideas", icon: "✦" },
-  { href: "/inbox", label: "Inbox", icon: "✉" },
   { href: "/expenses", label: "Expenses", icon: "$" },
   { href: "/profiles", label: "Profiles", icon: "☺" },
   { href: "/settings", label: "Settings", icon: "⚙" },

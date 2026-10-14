@@ -4,15 +4,15 @@ import { useTransition } from "react";
 import { updateLeadSendAccount } from "@/lib/actions";
 import { useToast } from "@/components/ToastProvider";
 
-type Account = { id: string; email: string; isDefault: boolean };
+type SenderEmail = { id: string; email: string; isDefault: boolean };
 
 export default function LeadSendAccountSelect({
   leadId,
-  accounts,
+  senderEmails,
   value,
 }: {
   leadId: string;
-  accounts: Account[];
+  senderEmails: SenderEmail[];
   value: string | null;
 }) {
   const [isPending, startTransition] = useTransition();
@@ -20,7 +20,7 @@ export default function LeadSendAccountSelect({
 
   return (
     <label className="flex items-center gap-2 text-xs font-medium text-slate">
-      Send from
+      Shown as sent from
       <select
         defaultValue={value ?? ""}
         disabled={isPending}
@@ -32,14 +32,14 @@ export default function LeadSendAccountSelect({
         }
         className="rounded-lg border border-mist/40 bg-white px-2 py-1.5 text-xs text-ink focus:border-green focus:outline-none"
       >
-        <option value="">Default account</option>
-        {accounts.map((a) => (
+        <option value="">Default sender email</option>
+        {senderEmails.map((a) => (
           <option key={a.id} value={a.id}>
             {a.email}
           </option>
         ))}
       </select>
-      <a href="/settings" className="text-green hover:underline">+ Add email account</a>
+      <a href="/settings" className="text-green hover:underline">+ Add sender email</a>
     </label>
   );
 }

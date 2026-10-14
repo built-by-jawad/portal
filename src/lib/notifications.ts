@@ -19,7 +19,6 @@ export async function getActionItems(): Promise<ActionItems> {
   const [emailCandidates, engagementCandidates, taskCandidates] = await Promise.all([
     prisma.emailStepRecord.findMany({
       where: {
-        sentAt: null,
         scheduledDate: { not: null },
         lead: { status: { notIn: ["BOOKED", "DEAD"] } },
       },

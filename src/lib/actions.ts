@@ -6,14 +6,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { del } from "@vercel/blob";
 import { guessTimezoneFromAddress } from "@/lib/timezone";
-import { deconflictSchedule } from "@/lib/scheduling";
-import {
-  disconnectAccount,
-  getDefaultAccountId,
-  setDefaultAccount,
-  threadHasReplyFrom,
-} from "@/lib/google";
-import { performSend } from "@/lib/sendEngine";
+import { addSenderEmail, removeSenderEmail, setDefaultSenderEmail } from "@/lib/senderEmails";
 import { ENGAGEMENT_DAYS, SOCIAL_PLATFORMS, type SocialPlatform } from "@/lib/constants";
 import { DEFAULT_PROSPECT_CHECKLIST } from "@/lib/prospectChecklist";
 import { todayInTimeZone, addDays } from "@/lib/scheduling";
@@ -43,60 +36,10 @@ function channelList(formData: FormData): string[] {
 }
 
 
-// After any change that could create or shift a same-account send-time collision (scheduling a
-// step, editing its time, or moving a lead to a different account), re-checks every not-yet-sent
-// scheduled email on that effective account and applies a random 15-30 minute buffer to any that
-// land within 15 minutes of another one on the same account. Returns the leadIds that got nudged
-// so callers can revalidate those pages too.
-async function deconflictAccountSchedule(effectiveAccountId: string): Promise<string[]> {
-  const records = await prisma.emailStepRecord.findMany({
-    where: { sentAt: null, scheduledDate: { not: null }, scheduledTime: { not: null } },
-    select: {
-      id: true,
-      leadId: true,
-      scheduledDate: true,
-      scheduledTime: true,
-      scheduledTimezone: true,
-      lead: { select: { sendAccountId: true } },
-    },
-  });
-
-  const defaultAccountId = await getDefaultAccountId();
-  const relevant = records.filter(
-    (r) => (r.lead.sendAccountId || defaultAccountId) === effectiveAccountId
-  );
-
-  const changes = deconflictSchedule(
-    relevant.map((r) => ({
-      id: r.id,
-      scheduledDate: r.scheduledDate!,
-      scheduledTime: r.scheduledTime!,
-      scheduledTimezone: r.scheduledTimezone || "UTC",
-    }))
-  );
-
-  if (changes.length === 0) return [];
-
-  const leadIdById = new Map(relevant.map((r) => [r.id, r.leadId]));
-
-  await Promise.all(
-    changes.map((c) =>
-      prisma.emailStepRecord.update({
-        where: { id: c.id },
-        data: { scheduledDate: c.scheduledDate, scheduledTime: c.scheduledTime },
-      })
-    )
-  );
-
-  return [...new Set(changes.map((c) => leadIdById.get(c.id)).filter((id): id is string => !!id))];
-}
-
 export type DraftEmail = {
   hasSubject: boolean;
   subject: string;
   body: string;
-  threadMode: "THREAD" | "SEPARATE";
-  condition: "ALWAYS" | "IF_REPLIED" | "IF_NOT_REPLIED";
   scheduledDate: string;
   scheduledTime: string;
   scheduledTimezone: string;
@@ -106,8 +49,6 @@ const EMPTY_DRAFT: DraftEmail = {
   hasSubject: true,
   subject: "",
   body: "",
-  threadMode: "THREAD",
-  condition: "ALWAYS",
   scheduledDate: "",
   scheduledTime: "",
   scheduledTimezone: "",
@@ -125,11 +66,6 @@ function parseDraftEmails(formData: FormData): DraftEmail[] {
       hasSubject: typeof e?.hasSubject === "boolean" ? e.hasSubject : true,
       subject: typeof e?.subject === "string" ? e.subject : "",
       body: typeof e?.body === "string" ? e.body : "",
-      threadMode: e?.threadMode === "SEPARATE" ? "SEPARATE" : "THREAD",
-      condition:
-        e?.condition === "IF_REPLIED" || e?.condition === "IF_NOT_REPLIED"
-          ? e.condition
-          : "ALWAYS",
       scheduledDate: typeof e?.scheduledDate === "string" ? e.scheduledDate : "",
       scheduledTime: typeof e?.scheduledTime === "string" ? e.scheduledTime : "",
       scheduledTimezone: typeof e?.scheduledTimezone === "string" ? e.scheduledTimezone : "",
@@ -173,8 +109,6 @@ export async function createLead(formData: FormData) {
           hasSubject: e.hasSubject,
           subject: e.hasSubject ? e.subject : "",
           body: e.body,
-          threadMode: order === 0 ? "THREAD" : e.threadMode,
-          condition: order === 0 ? "ALWAYS" : e.condition,
           scheduledDate: e.scheduledDate || null,
           scheduledTime: e.scheduledTime || null,
           scheduledTimezone: e.scheduledTimezone || guessedTimezone,
@@ -184,12 +118,6 @@ export async function createLead(formData: FormData) {
   });
 
   await syncChannels(lead.id, channels);
-
-  const effectiveAccountId = sendAccountId || (await getDefaultAccountId());
-  if (effectiveAccountId) {
-    const nudgedLeadIds = await deconflictAccountSchedule(effectiveAccountId);
-    nudgedLeadIds.forEach((id) => revalidatePath(`/leads/${id}`));
-  }
 
   revalidatePath("/leads");
   revalidatePath("/calendar");
@@ -231,13 +159,6 @@ export async function updateLeadSendAccount(leadId: string, sendAccountId: strin
     data: { sendAccountId: sendAccountId || null },
   });
 
-  const effectiveAccountId = sendAccountId || (await getDefaultAccountId());
-  if (effectiveAccountId) {
-    const nudgedLeadIds = await deconflictAccountSchedule(effectiveAccountId);
-    nudgedLeadIds.forEach((id) => revalidatePath(`/leads/${id}`));
-    if (nudgedLeadIds.length > 0) revalidatePath("/calendar");
-  }
-
   revalidatePath(`/leads/${leadId}`);
   revalidatePath("/clients/[id]", "page");
 }
@@ -269,8 +190,6 @@ export async function addFollowup(leadId: string) {
       hasSubject: false,
       subject: "",
       body: "",
-      threadMode: "THREAD",
-      condition: "ALWAYS",
       scheduledTimezone: guessTimezoneFromAddress(lead.address),
     },
   });
@@ -289,10 +208,6 @@ export async function updateEmailStep(recordId: string, formData: FormData) {
   const hasSubject = checked(formData, "hasSubject");
   const subject = hasSubject ? str(formData, "subject") ?? "" : "";
   const body = str(formData, "body") ?? "";
-  const threadMode = str(formData, "threadMode") === "SEPARATE" ? "SEPARATE" : "THREAD";
-  const condition = ["IF_REPLIED", "IF_NOT_REPLIED"].includes(str(formData, "condition") ?? "")
-    ? (str(formData, "condition") as string)
-    : "ALWAYS";
   const scheduledDate = str(formData, "scheduledDate");
   const scheduledTime = str(formData, "scheduledTime");
   const scheduledTimezone = str(formData, "scheduledTimezone");
@@ -303,58 +218,15 @@ export async function updateEmailStep(recordId: string, formData: FormData) {
       hasSubject,
       subject,
       body,
-      threadMode,
-      condition,
       scheduledDate,
       scheduledTime,
       scheduledTimezone,
     },
-    include: { lead: { select: { sendAccountId: true } } },
   });
-
-  let adjusted = false;
-  if (scheduledDate && scheduledTime) {
-    const effectiveAccountId = record.lead.sendAccountId || (await getDefaultAccountId());
-    if (effectiveAccountId) {
-      const nudgedLeadIds = await deconflictAccountSchedule(effectiveAccountId);
-      adjusted = nudgedLeadIds.includes(record.leadId);
-      nudgedLeadIds.forEach((id) => revalidatePath(`/leads/${id}`));
-      if (nudgedLeadIds.length > 0) revalidatePath("/calendar");
-    }
-  }
 
   revalidatePath(`/leads/${record.leadId}`);
   revalidatePath("/clients/[id]", "page");
-  return { adjusted };
-}
-
-export async function markEmailSent(leadId: string, recordId: string) {
-  await prisma.emailStepRecord.update({
-    where: { id: recordId },
-    data: { sentAt: new Date() },
-  });
-
-  const lead = await prisma.lead.findUniqueOrThrow({ where: { id: leadId } });
-  if (lead.status === "NEW" || lead.status === "RESEARCHED") {
-    await prisma.lead.update({ where: { id: leadId }, data: { status: "CONTACTED" } });
-  }
-
-  revalidatePath(`/leads/${leadId}`);
-  revalidatePath("/clients/[id]", "page");
-  revalidatePath("/leads");
-  revalidatePath("/");
-}
-
-export async function unmarkEmailSent(leadId: string, recordId: string) {
-  await prisma.emailStepRecord.update({
-    where: { id: recordId },
-    data: { sentAt: null },
-  });
-
-  revalidatePath(`/leads/${leadId}`);
-  revalidatePath("/clients/[id]", "page");
-  revalidatePath("/leads");
-  revalidatePath("/");
+  revalidatePath("/calendar");
 }
 
 export async function deleteAttachment(leadId: string, attachmentId: string) {
@@ -370,69 +242,20 @@ export async function deleteAttachment(leadId: string, attachmentId: string) {
   revalidatePath("/clients/[id]", "page");
 }
 
-// Sends one email step via Gmail. accountId lets the caller pick which connected account to send
-// from for this send (falls back to the lead's assigned account, then the default account).
-export async function sendEmailNow(leadId: string, recordId: string, accountId?: string) {
-  await performSend(leadId, recordId, accountId);
-
-  revalidatePath(`/leads/${leadId}`);
-  revalidatePath("/clients/[id]", "page");
-  revalidatePath("/leads");
-  revalidatePath("/");
-}
-
-// Scans the connected inbox for a reply on each sent-but-not-yet-checked email in this lead's
-// sequence, stamping repliedAt when found. Drives the IF_REPLIED / IF_NOT_REPLIED pipeline
-// conditions on later steps. Best-effort per record — one failure doesn't block the others.
-export async function checkRepliesForLead(leadId: string) {
-  const [lead, records] = await Promise.all([
-    prisma.lead.findUniqueOrThrow({ where: { id: leadId } }),
-    prisma.emailStepRecord.findMany({ where: { leadId }, orderBy: { order: "asc" } }),
-  ]);
-
-  if (!lead.email) return;
-  const accountId = lead.sendAccountId || (await getDefaultAccountId());
-  if (!accountId) return;
-
-  for (const record of records) {
-    if (!record.sentAt || record.repliedAt || !record.gmailThreadId) continue;
-    try {
-      const replied = await threadHasReplyFrom(
-        accountId,
-        record.gmailThreadId,
-        lead.email,
-        record.sentAt
-      );
-      if (replied) {
-        await prisma.emailStepRecord.update({
-          where: { id: record.id },
-          data: { repliedAt: new Date() },
-        });
-      }
-    } catch {
-      // skip this record, try the rest
-    }
-  }
-
-  const anyReplied = (
-    await prisma.emailStepRecord.findMany({ where: { leadId }, select: { repliedAt: true } })
-  ).some((r) => r.repliedAt);
-  if (anyReplied && lead.status !== "BOOKED" && lead.status !== "DEAD") {
-    await prisma.lead.update({ where: { id: leadId }, data: { status: "REPLIED" } });
-  }
-
-  revalidatePath(`/leads/${leadId}`);
-  revalidatePath("/clients/[id]", "page");
-  revalidatePath("/");
-}
-
-export async function setDefaultAccountAction(accountId: string) {
-  await setDefaultAccount(accountId);
+export async function addSenderEmailAction(formData: FormData) {
+  const email = str(formData, "email");
+  if (!email) throw new Error("Email is required");
+  await addSenderEmail(email);
   revalidatePath("/settings");
 }
 
-export async function disconnectAccountAction(accountId: string) {
-  await disconnectAccount(accountId);
+export async function setDefaultSenderEmailAction(id: string) {
+  await setDefaultSenderEmail(id);
+  revalidatePath("/settings");
+}
+
+export async function removeSenderEmailAction(id: string) {
+  await removeSenderEmail(id);
   revalidatePath("/settings");
 }
 
