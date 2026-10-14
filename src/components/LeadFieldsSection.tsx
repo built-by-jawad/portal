@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { TRADES, TRADE_LABELS } from "@/lib/constants";
 import type { Lead } from "@prisma/client";
 import SecondaryEmailsField from "@/components/SecondaryEmailsField";
@@ -15,13 +15,42 @@ export default function LeadFieldsSection({ lead, isClient }: { lead?: Lead; isC
   const [state, setState] = useState(lead?.state ?? "");
   const [cityTouched, setCityTouched] = useState(false);
   const [stateTouched, setStateTouched] = useState(false);
+  const [geocoding, setGeocoding] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function handleAddressChange(value: string) {
     setAddress(value);
+
+    // Instant local guess while the real geocode lookup is in flight.
     const guess = parseCityState(value);
     if (!cityTouched && guess.city) setCity(guess.city);
     if (!stateTouched && guess.state) setState(guess.state);
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!value.trim()) {
+      setGeocoding(false);
+      return;
+    }
+    setGeocoding(true);
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/geocode?q=${encodeURIComponent(value)}`);
+        const data = await res.json();
+        if (!cityTouched && data.city) setCity(data.city);
+        if (!stateTouched && data.state) setState(data.state);
+      } catch {
+        // Local regex guess above already stands; a failed lookup just means no upgrade.
+      } finally {
+        setGeocoding(false);
+      }
+    }, 800);
   }
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
 
   const timezone = guessTimezoneFromAddress(address) ?? (state ? guessTimezoneFromAddress(state) : null);
 
@@ -61,6 +90,7 @@ export default function LeadFieldsSection({ lead, isClient }: { lead?: Lead; isC
               placeholder="Street, city, state, ZIP"
               className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
             />
+            {geocoding && <p className="mt-1 text-xs text-slate">Looking up city/state…</p>}
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-ink">City</label>
