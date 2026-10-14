@@ -55,7 +55,7 @@ const STATE_TIMEZONE: Record<string, string> = {
   WY: "America/Denver",
 };
 
-const STATE_NAME_TO_ABBR: Record<string, string> = {
+export const STATE_NAME_TO_ABBR: Record<string, string> = {
   alabama: "AL", alaska: "AK", arizona: "AZ", arkansas: "AR", california: "CA",
   colorado: "CO", connecticut: "CT", delaware: "DE", "district of columbia": "DC",
   florida: "FL", georgia: "GA", hawaii: "HI", idaho: "ID", illinois: "IL",

@@ -1,9 +1,30 @@
+"use client";
+
+import { useState } from "react";
 import { TRADES, TRADE_LABELS } from "@/lib/constants";
 import type { Lead } from "@prisma/client";
 import SecondaryEmailsField from "@/components/SecondaryEmailsField";
 import { CHANNELS, CHANNEL_LABELS } from "@/lib/outreach";
+import { parseCityState } from "@/lib/address";
+import { guessTimezoneFromAddress } from "@/lib/timezone";
+import TimezoneClock from "@/components/TimezoneClock";
 
 export default function LeadFieldsSection({ lead, isClient }: { lead?: Lead; isClient?: boolean }) {
+  const [address, setAddress] = useState(lead?.address ?? "");
+  const [city, setCity] = useState(lead?.city ?? "");
+  const [state, setState] = useState(lead?.state ?? "");
+  const [cityTouched, setCityTouched] = useState(false);
+  const [stateTouched, setStateTouched] = useState(false);
+
+  function handleAddressChange(value: string) {
+    setAddress(value);
+    const guess = parseCityState(value);
+    if (!cityTouched && guess.city) setCity(guess.city);
+    if (!stateTouched && guess.state) setState(guess.state);
+  }
+
+  const timezone = guessTimezoneFromAddress(address) ?? (state ? guessTimezoneFromAddress(state) : null);
+
   return (
     <>
       <div className="rounded-xl border border-mist/30 bg-white/60 p-4 shadow-sm sm:p-6">
@@ -35,13 +56,39 @@ export default function LeadFieldsSection({ lead, isClient }: { lead?: Lead; isC
             <label className="mb-1.5 block text-sm font-medium text-ink">Address</label>
             <input
               name="address"
-              defaultValue={lead?.address ?? undefined}
+              value={address}
+              onChange={(e) => handleAddressChange(e.target.value)}
               placeholder="Street, city, state, ZIP"
               className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
             />
           </div>
-          <Field label="City" name="city" defaultValue={lead?.city ?? undefined} />
-          <Field label="State" name="state" defaultValue={lead?.state ?? undefined} />
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-ink">City</label>
+            <input
+              name="city"
+              value={city}
+              onChange={(e) => {
+                setCityTouched(true);
+                setCity(e.target.value);
+              }}
+              className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-ink">State</label>
+            <input
+              name="state"
+              value={state}
+              onChange={(e) => {
+                setStateTouched(true);
+                setState(e.target.value);
+              }}
+              className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <TimezoneClock timezone={timezone} />
+          </div>
           <Field label="Instagram" name="instagram" defaultValue={lead?.instagram ?? undefined} placeholder="Profile link or handle" />
           <Field label="Facebook" name="facebook" defaultValue={lead?.facebook ?? undefined} placeholder="Page link" />
           <Field label="LinkedIn" name="linkedin" defaultValue={lead?.linkedin ?? undefined} placeholder="Profile link" />
