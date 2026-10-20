@@ -85,8 +85,53 @@ model Mailbox {
   accessToken  String?
   tokenExpiry  DateTime?
 
-  leads     Lead[]
-  sentSteps EmailStepRecord[] @relation("SentFromMailbox")
+  leads      Lead[]
+  sentSteps  EmailStepRecord[] @relation("SentFromMailbox")
+  messages   MailMessage[]
+  syncStates MailSyncState[]
+}
+
+// One synced copy of a real IMAP message, across any folder, for the full mail client at /mail.
+// Populated by src/lib/mailSync.ts (polled by n8n hitting /api/n8n/mail/sync) — this table is a
+// cache of what's on the IMAP server, not a source of truth; re-syncing just upserts on
+// [mailboxId, folder, uid]. threadKey groups a conversation (normalized subject + the other
+// party's address) since Titan mail doesn't reliably carry References headers to thread on.
+model MailMessage {
+  id          String   @id @default(cuid())
+  mailboxId   String
+  mailbox     Mailbox  @relation(fields: [mailboxId], references: [id], onDelete: Cascade)
+  folder      String
+  uid         Int
+  messageId   String?
+  inReplyTo   String?
+  threadKey   String
+  fromAddress String
+  fromName    String?
+  toAddress   String?
+  subject     String
+  textPlain   String?
+  textHtml    String?
+  date        DateTime
+  seen        Boolean  @default(false)
+  // Set when this row was created by a send/reply from the portal itself (vs. picked up by sync),
+  // so the UI doesn't need to wait for the next sync to show a just-sent message.
+  sentByPortal Boolean @default(false)
+  createdAt   DateTime @default(now())
+
+  @@unique([mailboxId, folder, uid])
+  @@index([mailboxId, threadKey])
+}
+
+// Tracks the highest UID already synced per mailbox+folder, so each sync only fetches what's new.
+model MailSyncState {
+  id        String   @id @default(cuid())
+  mailboxId String
+  mailbox   Mailbox  @relation(fields: [mailboxId], references: [id], onDelete: Cascade)
+  folder    String
+  lastUid   Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@unique([mailboxId, folder])
 }
 
 // Files (screenshots, PDFs, etc.) attached directly to a lead, separate from email attachments —

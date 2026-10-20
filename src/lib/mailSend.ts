@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 import { prisma } from "@/lib/prisma";
 import { getGmailClient } from "@/lib/google";
+import { appendToSent, syncMailbox } from "@/lib/mailSync";
 
 // Password for each Titan mailbox, keyed by email. Stored as one JSON env var rather than per-
 // mailbox vars so adding/removing a mailbox doesn't require new env var names.
@@ -110,6 +111,30 @@ async function sendViaTitan(params: {
     references: inReplyTo,
     attachments: params.attachments?.map((a) => ({ filename: a.filename, path: a.url })),
   });
+
+  // Raw SMTP sends never show up in Titan's own Sent folder on their own (that's a webmail-client
+  // behavior, not an SMTP one) — append a copy ourselves, then sync so it's in the DB with its real
+  // UID right away. Best-effort: a mail already sent should never be reported as failed.
+  try {
+    const headers = [
+      `From: ${params.fromEmail}`,
+      `To: ${params.to}`,
+      `Subject: ${params.subject}`,
+      `Message-ID: ${info.messageId}`,
+      `Content-Type: text/plain; charset="UTF-8"`,
+      `MIME-Version: 1.0`,
+    ];
+    if (inReplyTo) {
+      headers.push(`In-Reply-To: ${inReplyTo}`);
+      headers.push(`References: ${inReplyTo}`);
+    }
+    const raw = `${headers.join("\r\n")}\r\n\r\n${params.text}`;
+    await appendToSent(params.fromEmail, raw);
+    const mailbox = await prisma.mailbox.findUnique({ where: { email: params.fromEmail } });
+    if (mailbox) await syncMailbox(mailbox.id, params.fromEmail);
+  } catch (err) {
+    console.error("appendToSent/syncMailbox failed (send itself succeeded):", err);
+  }
 
   return { messageId: info.messageId as string, threadId: undefined as string | undefined };
 }

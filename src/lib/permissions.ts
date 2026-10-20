@@ -4,6 +4,7 @@
 export const PAGE_KEYS = [
   { key: "dashboard", href: "/", label: "Dashboard" },
   { key: "outreach", href: "/outreach", label: "Outreach" },
+  { key: "mail", href: "/mail", label: "Mail" },
   { key: "leads", href: "/leads", label: "Leads" },
   { key: "engagement", href: "/engagement", label: "Engagement" },
   { key: "tasks", href: "/tasks", label: "Tasks" },
