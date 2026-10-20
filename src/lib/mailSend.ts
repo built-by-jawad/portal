@@ -79,7 +79,7 @@ async function sendViaGmail(params: {
       format: "metadata",
       metadataHeaders: ["Message-ID"],
     });
-    messageIdHeader = sent.data.payload?.headers?.find((h) => h.name === "Message-ID")?.value ?? undefined;
+    messageIdHeader = sent.data.payload?.headers?.find((h) => h.name?.toLowerCase() === "message-id")?.value ?? undefined;
   } catch {
     // Missing scope or any other lookup failure — keep going with the fallback id below.
   }
