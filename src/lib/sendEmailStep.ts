@@ -18,6 +18,7 @@ export async function sendEmailStepById(id: string) {
 
   let subject = step.hasSubject ? step.subject : "";
   let inReplyTo: string | null = null;
+  let threadId: string | null = null;
 
   if (step.order > 0) {
     const initialStep = await prisma.emailStepRecord.findFirst({ where: { leadId: step.leadId, order: 0 } });
@@ -25,16 +26,18 @@ export async function sendEmailStepById(id: string) {
       const rootSubject = initialStep.hasSubject ? initialStep.subject : null;
       if (rootSubject) subject = /^re:/i.test(rootSubject) ? rootSubject : `Re: ${rootSubject}`;
       inReplyTo = initialStep.messageId ?? null;
+      threadId = initialStep.threadId ?? null;
     }
   }
 
   try {
-    const { messageId } = await sendThreadedEmail({
+    const { messageId, threadId: sentThreadId } = await sendThreadedEmail({
       fromEmail: step.lead.mailbox.email,
       to: step.lead.email,
       subject: subject ?? "",
       text: step.body,
       inReplyTo,
+      threadId,
       attachments: step.attachments.map((a) => ({ filename: a.filename, url: a.url })),
     });
 
@@ -42,7 +45,13 @@ export async function sendEmailStepById(id: string) {
 
     await prisma.emailStepRecord.update({
       where: { id },
-      data: { status: "SENT", sentAt, sentFromMailboxId: step.lead.mailboxId, messageId },
+      data: {
+        status: "SENT",
+        sentAt,
+        sentFromMailboxId: step.lead.mailboxId,
+        messageId,
+        threadId: sentThreadId ?? null,
+      },
     });
 
     const remaining = await prisma.emailStepRecord.count({

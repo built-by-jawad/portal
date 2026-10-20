@@ -166,6 +166,10 @@ model EmailStepRecord {
   sentFromMailbox   Mailbox?  @relation("SentFromMailbox", fields: [sentFromMailboxId], references: [id], onDelete: SetNull)
   claimedAt         DateTime?
   messageId         String?
+  // Gmail's own thread id (only set for Gmail-provider mailboxes). Passed back into a follow-up's
+  // send request so Gmail groups it into the same thread server-side — more reliable than relying
+  // on In-Reply-To/References header matching alone.
+  threadId          String?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 

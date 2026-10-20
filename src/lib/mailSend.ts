@@ -39,6 +39,7 @@ async function sendViaGmail(params: {
   subject: string;
   text: string;
   inReplyTo?: string | null;
+  threadId?: string | null;
 }) {
   const gmail = await getGmailClient(params.fromEmail);
 
@@ -58,16 +59,18 @@ async function sendViaGmail(params: {
   const raw = `${headers.join("\r\n")}\r\n\r\n${params.text}`;
   const encoded = Buffer.from(raw).toString("base64url");
 
+  // Passing Gmail's own threadId (when we have one, i.e. this is a follow-up) forces the message
+  // into the same thread server-side — this is what actually controls Gmail threading, and it
+  // works regardless of whether the In-Reply-To/References headers above match exactly.
   const res = await gmail.users.messages.send({
     userId: "me",
-    requestBody: { raw: encoded },
+    requestBody: { raw: encoded, threadId: params.threadId ?? undefined },
   });
 
   // The send already succeeded by this point. Fetching the RFC822 Message-ID header is a nice-to-
-  // have for threading follow-ups off the exact header value, but it needs an extra scope
-  // (gmail.metadata) that an older Gmail connection may not have granted yet. Never let that
-  // lookup failing turn an email that was actually sent into a reported failure — fall back to
-  // Gmail's own message id, which is still enough to detect "already sent" on retries.
+  // have (lets a reply-detection poll match on it later) but needs an extra scope (gmail.metadata)
+  // that an older Gmail connection may not have granted yet. Never let that lookup failing turn an
+  // email that was actually sent into a reported failure.
   let messageIdHeader: string | undefined;
   try {
     const sent = await gmail.users.messages.get({
@@ -81,7 +84,10 @@ async function sendViaGmail(params: {
     // Missing scope or any other lookup failure — keep going with the fallback id below.
   }
 
-  return { messageId: messageIdHeader ?? res.data.id ?? "" };
+  return {
+    messageId: messageIdHeader ?? res.data.id ?? "",
+    threadId: res.data.threadId ?? undefined,
+  };
 }
 
 async function sendViaTitan(params: {
@@ -105,7 +111,7 @@ async function sendViaTitan(params: {
     attachments: params.attachments?.map((a) => ({ filename: a.filename, path: a.url })),
   });
 
-  return { messageId: info.messageId as string };
+  return { messageId: info.messageId as string, threadId: undefined as string | undefined };
 }
 
 export async function sendThreadedEmail(params: {
@@ -114,6 +120,7 @@ export async function sendThreadedEmail(params: {
   subject: string;
   text: string;
   inReplyTo?: string | null;
+  threadId?: string | null;
   attachments?: { filename: string; url: string }[];
 }) {
   const mailbox = await prisma.mailbox.findUnique({ where: { email: params.fromEmail } });
