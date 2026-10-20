@@ -58,6 +58,7 @@ export async function setOutreachStatus(leadId: string, status: string, stopReas
   const lead = await prisma.lead.findUniqueOrThrow({ where: { id: leadId } });
   const now = new Date();
   const closed = CLOSED_STATUSES.includes(status);
+  const backToNew = status === "NEW";
 
   await prisma.lead.update({
     where: { id: leadId },
@@ -66,12 +67,39 @@ export async function setOutreachStatus(leadId: string, status: string, stopReas
       status: LEGACY_STATUS[status],
       sequenceDone: closed,
       stopReason: closed ? (stopReason ?? lead.stopReason) : null,
-      contactedAt: status !== "NEW" ? (lead.contactedAt ?? now) : lead.contactedAt,
-      repliedAt: ["REPLIED", "CALL_BOOKED", "WON"].includes(status) ? (lead.repliedAt ?? now) : lead.repliedAt,
-      callBookedAt: status === "CALL_BOOKED" ? (lead.callBookedAt ?? now) : lead.callBookedAt,
-      wonAt: status === "WON" ? (lead.wonAt ?? now) : lead.wonAt,
+      contactedAt: backToNew ? null : (lead.contactedAt ?? now),
+      repliedAt: backToNew
+        ? null
+        : ["REPLIED", "CALL_BOOKED", "WON"].includes(status)
+          ? (lead.repliedAt ?? now)
+          : lead.repliedAt,
+      callBookedAt: backToNew ? null : status === "CALL_BOOKED" ? (lead.callBookedAt ?? now) : lead.callBookedAt,
+      wonAt: backToNew ? null : status === "WON" ? (lead.wonAt ?? now) : lead.wonAt,
+      // Tagging a lead back to New means starting completely over — it shouldn't carry over the
+      // old mailbox/thread/schedule from a previous run.
+      mailboxId: backToNew ? null : undefined,
+      sequenceStartedAt: backToNew ? null : undefined,
     },
   });
+
+  if (backToNew) {
+    // Reset every email step back to a blank, unsent slate: no thread, no schedule, no claim.
+    await prisma.emailStepRecord.updateMany({
+      where: { leadId },
+      data: {
+        status: "PENDING",
+        messageId: null,
+        threadId: null,
+        sentAt: null,
+        claimedAt: null,
+        sentFromMailboxId: null,
+        scheduledDate: null,
+        scheduledTime: null,
+        scheduledTimezone: null,
+      },
+    });
+  }
+
   if (closed) {
     await prisma.outreachSequence.updateMany({ where: { leadId }, data: { done: true } });
   } else if (lead.sequenceDone) {
