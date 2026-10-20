@@ -4,15 +4,31 @@ import { addMailboxAction, removeMailboxAction, toggleMailboxActiveAction } from
 
 export const dynamic = "force-dynamic";
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ connected?: string; error?: string }>;
+}) {
   const mailboxes = await listMailboxes();
+  const { connected, error } = await searchParams;
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 md:py-10">
       <PageHeader
         title="Settings"
-        description="Titan mailboxes used to send outreach sequences. SMTP/IMAP credentials for sending live only in n8n — add/remove mailboxes here just controls which ones leads can be assigned to."
+        description="Mailboxes used to send outreach sequences: 5 Titan addresses (SMTP creds live only in n8n) plus any Gmail accounts connected below (sent via the Gmail API with your Google sign-in)."
       />
+
+      {connected && (
+        <p className="mb-4 rounded-lg bg-green/10 px-4 py-2 text-sm font-semibold text-green">
+          Gmail account connected.
+        </p>
+      )}
+      {error && (
+        <p className="mb-4 rounded-lg bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">
+          Google sign-in failed ({error}). Try again.
+        </p>
+      )}
 
       <div className="rounded-xl border border-mist/30 bg-white/60 p-4 shadow-sm sm:p-6">
         <div className="mb-4 flex items-center justify-between">
@@ -21,7 +37,7 @@ export default async function SettingsPage() {
           </h2>
         </div>
 
-        <form action={addMailboxAction} className="mb-4 flex flex-wrap gap-2">
+        <form action={addMailboxAction} className="mb-3 flex flex-wrap gap-2">
           <input
             type="text"
             name="label"
@@ -39,9 +55,16 @@ export default async function SettingsPage() {
             type="submit"
             className="rounded-lg bg-green px-4 py-2 text-sm font-semibold text-paper transition hover:brightness-95"
           >
-            + Add mailbox
+            + Add Titan mailbox
           </button>
         </form>
+
+        <a
+          href="/api/google/connect"
+          className="mb-4 inline-flex items-center gap-2 rounded-lg border border-mist/40 bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:bg-mist/10"
+        >
+          + Connect Gmail account
+        </a>
 
         {mailboxes.length === 0 ? (
           <p className="text-sm text-slate">No mailboxes added yet.</p>
@@ -53,6 +76,9 @@ export default async function SettingsPage() {
                   <p className="text-sm font-semibold text-ink">
                     {m.label}
                     <span className="ml-2 text-slate">{m.email}</span>
+                    <span className="ml-2 rounded-full bg-mist/20 px-2 py-0.5 text-xs font-semibold text-slate">
+                      {m.provider === "GMAIL" ? "Gmail" : "Titan"}
+                    </span>
                     {!m.isActive && (
                       <span className="ml-2 rounded-full bg-mist/30 px-2 py-0.5 text-xs font-semibold text-slate">
                         Inactive

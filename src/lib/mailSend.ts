@@ -1,4 +1,6 @@
 import nodemailer from "nodemailer";
+import { prisma } from "@/lib/prisma";
+import { getGmailClient } from "@/lib/google";
 
 // Password for each Titan mailbox, keyed by email. Stored as one JSON env var rather than per-
 // mailbox vars so adding/removing a mailbox doesn't require new env var names.
@@ -12,7 +14,7 @@ function getMailboxPassword(email: string): string {
   return password;
 }
 
-function transporterFor(email: string) {
+function titanTransporterFor(email: string) {
   return nodemailer.createTransport({
     host: "smtp.titan.email",
     port: 465,
@@ -21,7 +23,60 @@ function transporterFor(email: string) {
   });
 }
 
-export async function sendThreadedEmail(params: {
+function normalizeMessageId(id: string) {
+  return id.startsWith("<") ? id : `<${id}>`;
+}
+
+function encodeHeaderWord(value: string) {
+  // Keep it simple: base64 any non-ASCII subject so it's a valid RFC 2822 header.
+  if (/^[\x00-\x7F]*$/.test(value)) return value;
+  return `=?UTF-8?B?${Buffer.from(value, "utf-8").toString("base64")}?=`;
+}
+
+async function sendViaGmail(params: {
+  fromEmail: string;
+  to: string;
+  subject: string;
+  text: string;
+  inReplyTo?: string | null;
+}) {
+  const gmail = await getGmailClient(params.fromEmail);
+
+  const inReplyTo = params.inReplyTo ? normalizeMessageId(params.inReplyTo) : undefined;
+  const headers = [
+    `From: ${params.fromEmail}`,
+    `To: ${params.to}`,
+    `Subject: ${encodeHeaderWord(params.subject)}`,
+    `Content-Type: text/plain; charset="UTF-8"`,
+    `MIME-Version: 1.0`,
+  ];
+  if (inReplyTo) {
+    headers.push(`In-Reply-To: ${inReplyTo}`);
+    headers.push(`References: ${inReplyTo}`);
+  }
+
+  const raw = `${headers.join("\r\n")}\r\n\r\n${params.text}`;
+  const encoded = Buffer.from(raw).toString("base64url");
+
+  const res = await gmail.users.messages.send({
+    userId: "me",
+    requestBody: { raw: encoded },
+  });
+
+  // Gmail's API doesn't return the RFC822 Message-ID directly; fetch it so later follow-ups can
+  // thread off this exact header value.
+  const sent = await gmail.users.messages.get({
+    userId: "me",
+    id: res.data.id!,
+    format: "metadata",
+    metadataHeaders: ["Message-ID"],
+  });
+  const messageIdHeader = sent.data.payload?.headers?.find((h) => h.name === "Message-ID")?.value;
+
+  return { messageId: messageIdHeader ?? res.data.id ?? "" };
+}
+
+async function sendViaTitan(params: {
   fromEmail: string;
   to: string;
   subject: string;
@@ -29,13 +84,8 @@ export async function sendThreadedEmail(params: {
   inReplyTo?: string | null;
   attachments?: { filename: string; url: string }[];
 }) {
-  const transporter = transporterFor(params.fromEmail);
-
-  const inReplyTo = params.inReplyTo
-    ? params.inReplyTo.startsWith("<")
-      ? params.inReplyTo
-      : `<${params.inReplyTo}>`
-    : undefined;
+  const transporter = titanTransporterFor(params.fromEmail);
+  const inReplyTo = params.inReplyTo ? normalizeMessageId(params.inReplyTo) : undefined;
 
   const info = await transporter.sendMail({
     from: params.fromEmail,
@@ -48,4 +98,19 @@ export async function sendThreadedEmail(params: {
   });
 
   return { messageId: info.messageId as string };
+}
+
+export async function sendThreadedEmail(params: {
+  fromEmail: string;
+  to: string;
+  subject: string;
+  text: string;
+  inReplyTo?: string | null;
+  attachments?: { filename: string; url: string }[];
+}) {
+  const mailbox = await prisma.mailbox.findUnique({ where: { email: params.fromEmail } });
+  if (mailbox?.provider === "GMAIL") {
+    return sendViaGmail(params);
+  }
+  return sendViaTitan(params);
 }
