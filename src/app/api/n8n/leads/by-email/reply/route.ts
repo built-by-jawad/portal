@@ -53,5 +53,5 @@ export async function POST(request: NextRequest) {
     revalidatePath(`/leads/${lead.id}`);
   }
 
-  return NextResponse.json({ matched: true, leadId: lead.id });
+  return NextResponse.json({ matched: true, leadId: lead.id, businessName: lead.businessName, fromAddress: from });
 }
