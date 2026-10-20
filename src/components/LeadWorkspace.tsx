@@ -28,6 +28,7 @@ type DraftFields = {
   hasSubject: boolean;
   subject: string;
   body: string;
+  messageId: string;
 };
 
 // Business details and the email sequence used to have two separate Save buttons — one native
@@ -87,6 +88,7 @@ export default function LeadWorkspace({
         hasSubject: subjectEnabled,
         subject: fd.get("subject")?.toString() ?? "",
         body: fd.get("body")?.toString() ?? "",
+        messageId: fd.get("messageId")?.toString() ?? "",
       },
     }));
   }
@@ -111,6 +113,7 @@ export default function LeadWorkspace({
         if (d.hasSubject) fd.set("hasSubject", "on");
         fd.set("subject", d.subject);
         fd.set("body", d.body);
+        fd.set("messageId", d.messageId);
         await updateEmailStep(id, fd);
       }
 
@@ -276,15 +279,19 @@ export default function LeadWorkspace({
                   <label className="mb-1.5 block text-sm font-medium text-ink">Thread ID</label>
                   <input
                     type="text"
-                    readOnly
-                    value={
-                      current.messageId ??
-                      (current.order > 0
+                    name="messageId"
+                    defaultValue={draft?.messageId ?? current.messageId ?? ""}
+                    placeholder={
+                      current.order > 0
                         ? "Will match the initial email's thread once that email sends"
-                        : "Saved automatically once this email sends")
+                        : "Saved automatically once this email sends — edit or clear if needed"
                     }
-                    className="w-full rounded-lg border border-mist/40 bg-mist/10 px-3 py-2.5 text-sm text-slate focus:outline-none"
+                    className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
                   />
+                  <p className="mt-1 text-xs text-slate">
+                    Saved automatically once this email sends. Followups thread under the initial
+                    email&apos;s Thread ID — edit or clear it here if you need to.
+                  </p>
                 </div>
               </div>
             </div>

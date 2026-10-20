@@ -267,16 +267,20 @@ export async function updateEmailStep(recordId: string, formData: FormData) {
   const hasSubject = checked(formData, "hasSubject");
   const subject = hasSubject ? str(formData, "subject") ?? "" : "";
   const body = str(formData, "body") ?? "";
+  const messageId = str(formData, "messageId");
 
   // scheduledDate/scheduledTime/scheduledTimezone are no longer edited by hand here —
   // startLeadSequence (src/lib/actions.ts) sets them automatically from the lead's timezone and
   // the day-1/4/7/10/13 cadence, and the n8n due-email route reads them to decide what's due.
+  // messageId (shown as "Thread ID" in the UI) IS hand-editable — it's auto-filled on send, but
+  // can be cleared or overridden, e.g. to re-point a follow-up at a different thread.
   const record = await prisma.emailStepRecord.update({
     where: { id: recordId },
     data: {
       hasSubject,
       subject,
       body,
+      messageId,
     },
   });
 
