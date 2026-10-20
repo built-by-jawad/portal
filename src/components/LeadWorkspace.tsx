@@ -5,8 +5,8 @@ import type { Lead } from "@prisma/client";
 import LeadFieldsSection from "@/components/LeadFieldsSection";
 import AttachmentsUploader from "@/components/AttachmentsUploader";
 import { useToast } from "@/components/ToastProvider";
-import { emailStepLabel, TIMEZONES } from "@/lib/constants";
-import { updateLead, updateEmailStep, addFollowup, removeEmailStep } from "@/lib/actions";
+import { emailStepLabel } from "@/lib/constants";
+import { updateLead, updateEmailStep, addFollowup, removeEmailStep, sendEmailStepManually } from "@/lib/actions";
 
 type Attachment = { id: string; filename: string; url: string; size: number };
 
@@ -19,6 +19,8 @@ type StepRecord = {
   scheduledDate: string | null;
   scheduledTime: string | null;
   scheduledTimezone: string | null;
+  status: string;
+  messageId: string | null;
   attachments: Attachment[];
 };
 
@@ -26,9 +28,6 @@ type DraftFields = {
   hasSubject: boolean;
   subject: string;
   body: string;
-  scheduledDate: string;
-  scheduledTime: string;
-  scheduledTimezone: string;
 };
 
 // Business details and the email sequence used to have two separate Save buttons — one native
@@ -88,9 +87,6 @@ export default function LeadWorkspace({
         hasSubject: subjectEnabled,
         subject: fd.get("subject")?.toString() ?? "",
         body: fd.get("body")?.toString() ?? "",
-        scheduledDate: fd.get("scheduledDate")?.toString() ?? "",
-        scheduledTime: fd.get("scheduledTime")?.toString() ?? "",
-        scheduledTimezone: fd.get("scheduledTimezone")?.toString() ?? "",
       },
     }));
   }
@@ -115,9 +111,6 @@ export default function LeadWorkspace({
         if (d.hasSubject) fd.set("hasSubject", "on");
         fd.set("subject", d.subject);
         fd.set("body", d.body);
-        fd.set("scheduledDate", d.scheduledDate);
-        fd.set("scheduledTime", d.scheduledTime);
-        fd.set("scheduledTimezone", d.scheduledTimezone);
         await updateEmailStep(id, fd);
       }
 
@@ -176,6 +169,30 @@ export default function LeadWorkspace({
                   )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
+                  {!isClient && current.status !== "SENT" && (
+                    <button
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => {
+                        const isFollowup = current.order > 0;
+                        const question = isFollowup
+                          ? `Send ${emailStepLabel(current.order)} manually right now, in the same thread as the initial email?`
+                          : `Send ${emailStepLabel(current.order)} manually right now?`;
+                        if (!confirm(question)) return;
+                        startTransition(async () => {
+                          const result = await sendEmailStepManually(current.id);
+                          if (result.ok) {
+                            notify("Sent");
+                          } else {
+                            notify(`Send failed: ${result.error}`);
+                          }
+                        });
+                      }}
+                      className="rounded-lg border border-green/40 px-3 py-1.5 text-xs font-semibold text-green transition hover:bg-green/10 disabled:opacity-50"
+                    >
+                      Send manually
+                    </button>
+                  )}
                   {current.order > 0 && (
                     <button
                       type="button"
@@ -255,44 +272,19 @@ export default function LeadWorkspace({
                   )}
                 </div>
 
-                <p className="text-xs text-slate">
-                  This portal doesn&apos;t send emails — copy the text out and send it yourself.
-                  Send date/time below is just a reference note for when you plan to send it.
-                </p>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium text-ink">Send date</label>
-                    <input
-                      type="date"
-                      name="scheduledDate"
-                      defaultValue={draft?.scheduledDate ?? current.scheduledDate ?? ""}
-                      className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium text-ink">Send time</label>
-                    <input
-                      type="time"
-                      name="scheduledTime"
-                      defaultValue={draft?.scheduledTime ?? current.scheduledTime ?? ""}
-                      className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium text-ink">Timezone</label>
-                    <select
-                      name="scheduledTimezone"
-                      defaultValue={draft?.scheduledTimezone ?? current.scheduledTimezone ?? ""}
-                      className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
-                    >
-                      <option value="">Auto-detect from address</option>
-                      {TIMEZONES.map((tz) => (
-                        <option key={tz.value} value={tz.value}>
-                          {tz.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-ink">Thread ID</label>
+                  <input
+                    type="text"
+                    readOnly
+                    value={
+                      current.messageId ??
+                      (current.order > 0
+                        ? "Will match the initial email's thread once that email sends"
+                        : "Saved automatically once this email sends")
+                    }
+                    className="w-full rounded-lg border border-mist/40 bg-mist/10 px-3 py-2.5 text-sm text-slate focus:outline-none"
+                  />
                 </div>
               </div>
             </div>

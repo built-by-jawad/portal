@@ -11,6 +11,7 @@ import { ENGAGEMENT_DAYS, SOCIAL_PLATFORMS, type SocialPlatform } from "@/lib/co
 import { DEFAULT_PROSPECT_CHECKLIST } from "@/lib/prospectChecklist";
 import { todayInTimeZone, addDays } from "@/lib/scheduling";
 import { EMAIL_SEQUENCE_DAYS } from "@/lib/outreach";
+import { sendEmailStepById } from "@/lib/sendEmailStep";
 
 const PAKISTAN_TZ = "Asia/Karachi";
 
@@ -266,25 +267,26 @@ export async function updateEmailStep(recordId: string, formData: FormData) {
   const hasSubject = checked(formData, "hasSubject");
   const subject = hasSubject ? str(formData, "subject") ?? "" : "";
   const body = str(formData, "body") ?? "";
-  const scheduledDate = str(formData, "scheduledDate");
-  const scheduledTime = str(formData, "scheduledTime");
-  const scheduledTimezone = str(formData, "scheduledTimezone");
 
+  // scheduledDate/scheduledTime/scheduledTimezone are no longer edited by hand here —
+  // startLeadSequence (src/lib/actions.ts) sets them automatically from the lead's timezone and
+  // the day-1/4/7/10/13 cadence, and the n8n due-email route reads them to decide what's due.
   const record = await prisma.emailStepRecord.update({
     where: { id: recordId },
     data: {
       hasSubject,
       subject,
       body,
-      scheduledDate,
-      scheduledTime,
-      scheduledTimezone,
     },
   });
 
   revalidatePath(`/leads/${record.leadId}`);
   revalidatePath("/clients/[id]", "page");
   revalidatePath("/calendar");
+}
+
+export async function sendEmailStepManually(recordId: string) {
+  return sendEmailStepById(recordId);
 }
 
 export async function deleteAttachment(leadId: string, attachmentId: string) {
