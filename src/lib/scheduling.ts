@@ -41,6 +41,26 @@ export function todayInTimeZone(timeZone: string, now: Date = new Date()): strin
   return parts.length === 3 ? parts.join("-") : now.toISOString().slice(0, 10);
 }
 
+// Minutes since local midnight, as seen in `timeZone`, at `now`.
+export function minutesOfDayInTimeZone(timeZone: string, now: Date = new Date()): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(now);
+  const hour = Number(parts.find((p) => p.type === "hour")?.value ?? "0") % 24;
+  const minute = Number(parts.find((p) => p.type === "minute")?.value ?? "0");
+  return hour * 60 + minute;
+}
+
+// Whether "now" falls inside the automated outreach send window (8:30am-10:30am) as seen in
+// `timeZone` — the window every automated send (regardless of mailbox) must land inside.
+export function isWithinSendWindow(timeZone: string, now: Date = new Date()): boolean {
+  const minutes = minutesOfDayInTimeZone(timeZone, now);
+  return minutes >= 8 * 60 + 30 && minutes <= 10 * 60 + 30;
+}
+
 export type CalendarView = "today" | "week" | "month";
 
 // Adds days to a YYYY-MM-DD string, staying in plain calendar-date arithmetic (no timezone

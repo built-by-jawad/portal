@@ -67,9 +67,8 @@ export async function setOutreachStatus(leadId: string, status: string, stopReas
       sequenceDone: closed,
       stopReason: closed ? (stopReason ?? lead.stopReason) : null,
       contactedAt: status !== "NEW" ? (lead.contactedAt ?? now) : lead.contactedAt,
-      repliedAt: ["REPLIED", "CALL_BOOKED", "TEARDOWN_SENT", "WON"].includes(status) ? (lead.repliedAt ?? now) : lead.repliedAt,
+      repliedAt: ["REPLIED", "CALL_BOOKED", "WON"].includes(status) ? (lead.repliedAt ?? now) : lead.repliedAt,
       callBookedAt: status === "CALL_BOOKED" ? (lead.callBookedAt ?? now) : lead.callBookedAt,
-      teardownSentAt: status === "TEARDOWN_SENT" ? (lead.teardownSentAt ?? now) : lead.teardownSentAt,
       wonAt: status === "WON" ? (lead.wonAt ?? now) : lead.wonAt,
     },
   });
@@ -124,7 +123,7 @@ export async function completeStep(seqId: string) {
   if (seq.lead.outreachStatus === "NEW") {
     await prisma.lead.update({
       where: { id: seq.leadId },
-      data: { outreachStatus: "IN_SEQUENCE", status: LEGACY_STATUS.IN_SEQUENCE, contactedAt: seq.lead.contactedAt ?? new Date() },
+      data: { outreachStatus: "SEQUENCE_STARTED", status: LEGACY_STATUS.SEQUENCE_STARTED, contactedAt: seq.lead.contactedAt ?? new Date() },
     });
   } else if (!seq.lead.contactedAt) {
     await prisma.lead.update({ where: { id: seq.leadId }, data: { contactedAt: new Date() } });
@@ -136,7 +135,7 @@ export async function completeStep(seqId: string) {
 export async function markSequenceReplied(seqId: string) {
   const seq = await prisma.outreachSequence.findUniqueOrThrow({ where: { id: seqId }, include: { lead: true } });
   await prisma.outreachSequence.update({ where: { id: seqId }, data: { repliedAt: seq.repliedAt ?? new Date() } });
-  if (["NEW", "IN_SEQUENCE"].includes(seq.lead.outreachStatus)) {
+  if (["NEW", "SEQUENCE_STARTED"].includes(seq.lead.outreachStatus)) {
     await setOutreachStatus(seq.leadId, "REPLIED");
   } else {
     refresh();

@@ -2,10 +2,9 @@
 
 export const OUTREACH_STATUSES = [
   "NEW",
-  "IN_SEQUENCE",
+  "SEQUENCE_STARTED",
   "REPLIED",
   "CALL_BOOKED",
-  "TEARDOWN_SENT",
   "WON",
   "NOT_INTERESTED",
   "BAD_FIT",
@@ -14,23 +13,21 @@ export type OutreachStatus = (typeof OUTREACH_STATUSES)[number];
 
 export const OUTREACH_STATUS_LABELS: Record<OutreachStatus, string> = {
   NEW: "New",
-  IN_SEQUENCE: "In sequence",
+  SEQUENCE_STARTED: "Sequence Started",
   REPLIED: "Replied",
-  CALL_BOOKED: "Call booked",
-  TEARDOWN_SENT: "Teardown sent",
+  CALL_BOOKED: "Call Booked",
   WON: "Won",
-  NOT_INTERESTED: "Not interested",
-  BAD_FIT: "Bad fit",
+  NOT_INTERESTED: "Not Interested",
+  BAD_FIT: "Bad Fit",
 };
 
 // The old single `status` column is still read by older code (clients = BOOKED), so every status
 // change also writes the closest legacy value.
 export const LEGACY_STATUS: Record<OutreachStatus, string> = {
   NEW: "NEW",
-  IN_SEQUENCE: "CONTACTED",
+  SEQUENCE_STARTED: "CONTACTED",
   REPLIED: "REPLIED",
   CALL_BOOKED: "REPLIED",
-  TEARDOWN_SENT: "REPLIED",
   WON: "BOOKED",
   NOT_INTERESTED: "DEAD",
   BAD_FIT: "DEAD",
@@ -74,6 +71,9 @@ const SOCIAL_DAYS: [number, string, boolean?][] = [
   [90, "Day 90: follow-up"],
 ];
 const EMAIL_DAYS = [1, 4, 7, 10, 13, 30, 60, 90];
+// The 5 fixed-cadence automated outreach emails (order 0..4), day counted from sequenceStartedAt
+// (day 1 = start date itself) — used by startLeadSequence to compute each step's scheduledDate.
+export const EMAIL_SEQUENCE_DAYS = EMAIL_DAYS.slice(0, 5);
 
 export const DEFAULT_CADENCE: Record<Channel, { repeatEvery: number; steps: (CadenceStepLike & { position: number })[] }> = {
   EMAIL: {

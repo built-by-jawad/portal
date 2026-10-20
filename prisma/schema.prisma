@@ -15,42 +15,47 @@ datasource db {
 // started on SQLite (no enum support) and there was no reason to churn it when moving to Postgres.
 
 model Lead {
-  id              String        @id @default(cuid())
-  businessName    String
-  contactName     String?
-  email           String?
+  id                String    @id @default(cuid())
+  businessName      String
+  contactName       String?
+  email             String?
   // Extra email addresses for this lead beyond the primary `email` (e.g. a second contact) —
   // reference/display only, sending and inbox scoping still use the primary `email` field.
-  secondaryEmails String[]      @default([])
-  phone           String?
-  website         String?
-  address         String?
-  trade           String        @default("OTHER")
-  status          String        @default("NEW")
-  leakNotes       String?
-  notes           String?
-  // Which sender email this lead's sequence is displayed as being from. Reference/display only —
-  // the portal doesn't send email, this is just for keeping drafts organized. Null = use the default.
-  sendAccountId   String?
-  sendAccount     SenderEmail?  @relation(fields: [sendAccountId], references: [id], onDelete: SetNull)
+  secondaryEmails   String[]  @default([])
+  phone             String?
+  website           String?
+  address           String?
+  trade             String    @default("OTHER")
+  status            String    @default("NEW")
+  leakNotes         String?
+  notes             String?
   // Outreach tracker fields (owner name lives in contactName). `status` above is the legacy status,
   // kept in sync from outreachStatus (see src/lib/outreach.ts) so older code keeps working.
-  city            String?
-  state           String?
-  instagram       String?
-  facebook        String?
-  linkedin        String?
-  channels        String[]      @default([])
-  outreachStatus  String        @default("NEW")
-  stopReason      String?
-  sequenceDone    Boolean       @default(false)
-  contactedAt     DateTime?
-  repliedAt       DateTime?
-  callBookedAt    DateTime?
-  teardownSentAt  DateTime?
-  wonAt           DateTime?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  city              String?
+  state             String?
+  instagram         String?
+  facebook          String?
+  linkedin          String?
+  channels          String[]  @default([])
+  outreachStatus    String    @default("NEW")
+  stopReason        String?
+  sequenceDone      Boolean   @default(false)
+  contactedAt       DateTime?
+  repliedAt         DateTime?
+  callBookedAt      DateTime?
+  teardownSentAt    DateTime?
+  wonAt             DateTime?
+  // IANA timezone (e.g. "America/Chicago"), auto-filled from `state` via src/lib/timezone.ts when a
+  // sequence starts, editable by hand. Drives the 8:30-10:30am local send window for automated sends.
+  timezone          String?
+  // Which Titan mailbox sends this lead's sequence. Assigned automatically (least-loaded active
+  // mailbox) when the sequence starts, reassignable by hand at any time.
+  mailboxId         String?
+  mailbox           Mailbox?  @relation(fields: [mailboxId], references: [id], onDelete: SetNull)
+  // Set when "Start sequence" is run — the anchor date the day 1/4/7/10/13 cadence is computed from.
+  sequenceStartedAt DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   sequences          OutreachSequence[]
   emails             EmailStepRecord[]
@@ -59,6 +64,21 @@ model Lead {
   files              LeadFile[]
   clientUpdates      ClientUpdate[]
   questions          ClientQuestion[]
+}
+
+// A Titan mailbox used to actually send outreach sequences via n8n. SMTP/IMAP credentials are NOT
+// stored here — they live only in n8n's own credential store, one set per mailbox's dedicated
+// workflow. This table exists purely so the portal can assign leads to a mailbox and track load.
+model Mailbox {
+  id        String   @id @default(cuid())
+  label     String
+  email     String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  leads     Lead[]
+  sentSteps EmailStepRecord[] @relation("SentFromMailbox")
 }
 
 // Files (screenshots, PDFs, etc.) attached directly to a lead, separate from email attachments —
@@ -117,8 +137,10 @@ model EngagementDay {
 // overridden by hand. All three are kept as plain strings rather than a converted UTC instant so what's displayed
 // is always exactly what was set.
 // hasSubject lets a follow-up skip the subject line entirely.
-// The portal is drafting/reference only — there's no real sending, so there's no sent/opened/clicked/replied
-// tracking on these rows at all. Copy the text out and send it yourself.
+// status/sentAt/sentFromMailboxId/claimedAt/messageId track real automated sending via n8n:
+// status: PENDING (not sent/due yet) | QUEUED (claimed by an n8n poll, awaiting send confirmation —
+// treated as stale and re-claimable after ~10 min) | SENT | SKIPPED (sequence stopped before this
+// step ran) | FAILED (send attempt errored, retryable by hand).
 model EmailStepRecord {
   id                String    @id @default(cuid())
   leadId            String
@@ -130,6 +152,12 @@ model EmailStepRecord {
   scheduledDate     String?
   scheduledTime     String?
   scheduledTimezone String?
+  status            String    @default("PENDING")
+  sentAt            DateTime?
+  sentFromMailboxId String?
+  sentFromMailbox   Mailbox?  @relation("SentFromMailbox", fields: [sentFromMailboxId], references: [id], onDelete: SetNull)
+  claimedAt         DateTime?
+  messageId         String?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -151,34 +179,22 @@ model Attachment {
   createdAt         DateTime        @default(now())
 }
 
-// A plain sender email address shown on a lead's sequence, for display/organization only — not a
-// real connected account, nothing is sent through it. Each lead can pick one via
-// Lead.sendAccountId, defaulting to whichever has isDefault set.
-model SenderEmail {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  isDefault Boolean  @default(false)
-  createdAt DateTime @default(now())
-
-  leads Lead[]
-}
-
 // A to-do item, optionally tied to a lead ("which client this is for"). dueDate is a plain
 // YYYY-MM-DD string like the email scheduling fields, entered by hand, shown on the /tasks
 // calendar — date-only, no time of day. completedAt is set when marked done — done tasks stay in
 // the Done view, not deleted.
 model Task {
-  id          String     @id @default(cuid())
+  id          String      @id @default(cuid())
   title       String
   description String?
   source      String?
   leadId      String?
-  lead        Lead?      @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  lead        Lead?       @relation(fields: [leadId], references: [id], onDelete: SetNull)
   dueDate     String?
   completedAt DateTime?
   media       TaskMedia[]
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 }
 
 model TaskMedia {
@@ -231,15 +247,15 @@ model ClientUpdateScreenshot {
 // down whenever it comes to mind, check it off (optionally logging the answer) once it's actually
 // asked and answered so nothing gets forgotten before the next call/email.
 model ClientQuestion {
-  id         String    @id @default(cuid())
+  id         String                @id @default(cuid())
   leadId     String
-  lead       Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  lead       Lead                  @relation(fields: [leadId], references: [id], onDelete: Cascade)
   question   String
   answer     String?
   resolvedAt DateTime?
   media      ClientQuestionMedia[]
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  createdAt  DateTime              @default(now())
+  updatedAt  DateTime              @updatedAt
 }
 
 model ClientQuestionMedia {
@@ -387,7 +403,7 @@ model Profile {
   createdAt    DateTime @default(now())
 
   permissions   ProfilePermission[]
-  expensesPaid  Expense[]      @relation("ExpensePaidBy")
+  expensesPaid  Expense[]           @relation("ExpensePaidBy")
   expenseShares ExpenseShare[]
 }
 

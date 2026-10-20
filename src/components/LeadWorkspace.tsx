@@ -42,11 +42,13 @@ export default function LeadWorkspace({
   leadId,
   records,
   isClient = false,
+  showFields = true,
 }: {
   lead: Lead;
   leadId: string;
   records: StepRecord[];
   isClient?: boolean;
+  showFields?: boolean;
 }) {
   const sorted = [...records].sort((a, b) => a.order - b.order);
   const [activeId, setActiveId] = useState<string | undefined>(sorted[0]?.id);
@@ -100,7 +102,7 @@ export default function LeadWorkspace({
 
   function handleSaveAll(formData: FormData) {
     startTransition(async () => {
-      await updateLead(leadId, formData);
+      if (showFields) await updateLead(leadId, formData);
 
       if (current && !isClient) {
         await updateEmailStep(current.id, formData);
@@ -299,10 +301,12 @@ export default function LeadWorkspace({
       </div>
       )}
 
-      <div>
-        <h2 className="font-display mb-4 text-lg font-bold text-ink">Business details</h2>
-        <LeadFieldsSection lead={lead} isClient={isClient} />
-      </div>
+      {showFields && (
+        <div>
+          <h2 className="font-display mb-4 text-lg font-bold text-ink">Business details</h2>
+          <LeadFieldsSection lead={lead} isClient={isClient} />
+        </div>
+      )}
 
       <button
         type="submit"

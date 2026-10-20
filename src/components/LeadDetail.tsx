@@ -5,12 +5,14 @@ import PageHeader from "@/components/PageHeader";
 import LeadWorkspace from "@/components/LeadWorkspace";
 import OutreachStatusSelect from "@/components/OutreachStatusSelect";
 import DeleteLeadButton from "@/components/DeleteLeadButton";
-import LeadSendAccountSelect from "@/components/LeadSendAccountSelect";
-import LeadFiles from "@/components/LeadFiles";
-import { listSenderEmails } from "@/lib/senderEmails";
+import LeadMailboxSelect from "@/components/LeadMailboxSelect";
+import LeadTimezoneSelect from "@/components/LeadTimezoneSelect";
+import LeadBusinessSummary from "@/components/LeadBusinessSummary";
+import StartSequenceButton from "@/components/StartSequenceButton";
+import { listMailboxes } from "@/lib/mailboxes";
 
 export function loadLeadShared() {
-  return listSenderEmails();
+  return listMailboxes();
 }
 
 export default async function LeadDetail({
@@ -22,13 +24,12 @@ export default async function LeadDetail({
 }) {
   const { id } = await params;
 
-  const [lead, senderEmails] = await Promise.all([
+  const [lead, mailboxes] = await Promise.all([
     prisma.lead.findUnique({
       where: { id },
       relationLoadStrategy: "join",
       include: {
         emails: { include: { attachments: true }, orderBy: { order: "asc" } },
-        files: { orderBy: { createdAt: "desc" } },
       },
     }),
     shared,
@@ -38,12 +39,15 @@ export default async function LeadDetail({
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 md:py-10">
-      <div className="mb-6">
+      <div className="mb-6 flex items-center justify-between">
         <Link
           href={lead.status === "BOOKED" ? "/clients" : "/leads"}
           className="text-sm font-semibold text-green hover:underline"
         >
           {lead.status === "BOOKED" ? "← All clients" : "← All leads"}
+        </Link>
+        <Link href={`/leads/${lead.id}/full`} className="text-sm font-semibold text-slate hover:underline">
+          View full details →
         </Link>
       </div>
 
@@ -59,13 +63,19 @@ export default async function LeadDetail({
       />
 
       {lead.status !== "BOOKED" && (
-        <div className="mb-6 flex flex-wrap items-center gap-3">
-          <LeadSendAccountSelect leadId={lead.id} senderEmails={senderEmails} value={lead.sendAccountId} />
+        <div className="mb-6 flex flex-wrap items-center gap-4">
+          <LeadMailboxSelect leadId={lead.id} mailboxes={mailboxes} value={lead.mailboxId} />
+          <LeadTimezoneSelect leadId={lead.id} value={lead.timezone} />
+          {lead.outreachStatus === "NEW" && lead.email && <StartSequenceButton leadId={lead.id} />}
         </div>
       )}
 
-      <div className="mb-10">
-        <LeadFiles leadId={lead.id} files={lead.files} />
+      <div className="mb-6">
+        <LeadBusinessSummary
+          businessName={lead.businessName}
+          contactName={lead.contactName}
+          email={lead.email}
+        />
       </div>
 
       <LeadWorkspace
@@ -73,6 +83,7 @@ export default async function LeadDetail({
         leadId={lead.id}
         records={lead.emails}
         isClient={lead.status === "BOOKED"}
+        showFields={false}
       />
     </div>
   );

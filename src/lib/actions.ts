@@ -6,10 +6,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { del } from "@vercel/blob";
 import { guessTimezoneFromAddress } from "@/lib/timezone";
-import { addSenderEmail, removeSenderEmail, setDefaultSenderEmail } from "@/lib/senderEmails";
+import { addMailbox, removeMailbox, setMailboxActive, pickLeastLoadedMailbox } from "@/lib/mailboxes";
 import { ENGAGEMENT_DAYS, SOCIAL_PLATFORMS, type SocialPlatform } from "@/lib/constants";
 import { DEFAULT_PROSPECT_CHECKLIST } from "@/lib/prospectChecklist";
 import { todayInTimeZone, addDays } from "@/lib/scheduling";
+import { EMAIL_SEQUENCE_DAYS } from "@/lib/outreach";
 
 const PAKISTAN_TZ = "Asia/Karachi";
 
@@ -82,7 +83,6 @@ export async function createLead(formData: FormData) {
   const address = str(formData, "address");
   const draftEmails = parseDraftEmails(formData);
   const guessedTimezone = guessTimezoneFromAddress(address);
-  const sendAccountId = str(formData, "sendAccountId");
   const channels = channelList(formData);
 
   const lead = await prisma.lead.create({
@@ -97,7 +97,7 @@ export async function createLead(formData: FormData) {
       trade: str(formData, "trade") ?? "OTHER",
       leakNotes: str(formData, "leakNotes"),
       notes: str(formData, "notes"),
-      sendAccountId,
+      timezone: guessedTimezone,
       city: str(formData, "city"),
       state: str(formData, "state"),
       instagram: str(formData, "instagram"),
@@ -153,14 +153,72 @@ export async function updateLead(id: string, formData: FormData) {
   revalidatePath("/leads");
 }
 
-export async function updateLeadSendAccount(leadId: string, sendAccountId: string) {
+export async function updateLeadMailbox(leadId: string, mailboxId: string) {
   await prisma.lead.update({
     where: { id: leadId },
-    data: { sendAccountId: sendAccountId || null },
+    data: { mailboxId: mailboxId || null },
   });
 
   revalidatePath(`/leads/${leadId}`);
   revalidatePath("/clients/[id]", "page");
+}
+
+export async function updateLeadTimezone(leadId: string, timezone: string) {
+  await prisma.lead.update({
+    where: { id: leadId },
+    data: { timezone: timezone || null },
+  });
+
+  revalidatePath(`/leads/${leadId}`);
+  revalidatePath("/clients/[id]", "page");
+}
+
+// Assigns a mailbox (least-loaded active one) and lays out the 5-step day 1/4/7/10/13 cadence from
+// today, then flips the lead into SEQUENCE_STARTED so n8n's due-email polling starts picking it up.
+export async function startLeadSequence(leadId: string) {
+  const lead = await prisma.lead.findUniqueOrThrow({ where: { id: leadId }, include: { emails: true } });
+  if (lead.outreachStatus !== "NEW") throw new Error("Sequence already started");
+  if (!lead.email) throw new Error("Lead needs an email address first");
+
+  const timezone = lead.timezone || guessTimezoneFromAddress(lead.address);
+  if (!timezone) throw new Error("Could not determine a timezone — set one by hand first");
+
+  const mailbox = await pickLeastLoadedMailbox();
+  if (!mailbox) throw new Error("No active mailbox available — add one in Settings first");
+
+  const startDate = todayInTimeZone(timezone);
+
+  await prisma.$transaction([
+    prisma.lead.update({
+      where: { id: leadId },
+      data: {
+        timezone,
+        mailboxId: mailbox.id,
+        sequenceStartedAt: new Date(),
+        sequenceDone: false,
+        outreachStatus: "SEQUENCE_STARTED",
+        status: "CONTACTED",
+      },
+    }),
+    ...lead.emails
+      .filter((e) => e.order < EMAIL_SEQUENCE_DAYS.length)
+      .map((e) =>
+        prisma.emailStepRecord.update({
+          where: { id: e.id },
+          data: {
+            scheduledDate: addDays(startDate, EMAIL_SEQUENCE_DAYS[e.order] - 1),
+            scheduledTime: "08:30",
+            scheduledTimezone: timezone,
+            status: "PENDING",
+            sentAt: null,
+            claimedAt: null,
+          },
+        })
+      ),
+  ]);
+
+  revalidatePath(`/leads/${leadId}`);
+  revalidatePath("/leads");
 }
 
 export async function deleteLead(id: string) {
@@ -242,20 +300,20 @@ export async function deleteAttachment(leadId: string, attachmentId: string) {
   revalidatePath("/clients/[id]", "page");
 }
 
-export async function addSenderEmailAction(formData: FormData) {
+export async function addMailboxAction(formData: FormData) {
   const email = str(formData, "email");
   if (!email) throw new Error("Email is required");
-  await addSenderEmail(email);
+  await addMailbox(str(formData, "label") ?? email, email);
   revalidatePath("/settings");
 }
 
-export async function setDefaultSenderEmailAction(id: string) {
-  await setDefaultSenderEmail(id);
+export async function toggleMailboxActiveAction(id: string, isActive: boolean) {
+  await setMailboxActive(id, isActive);
   revalidatePath("/settings");
 }
 
-export async function removeSenderEmailAction(id: string) {
-  await removeSenderEmail(id);
+export async function removeMailboxAction(id: string) {
+  await removeMailbox(id);
   revalidatePath("/settings");
 }
 
