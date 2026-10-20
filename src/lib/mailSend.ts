@@ -63,15 +63,23 @@ async function sendViaGmail(params: {
     requestBody: { raw: encoded },
   });
 
-  // Gmail's API doesn't return the RFC822 Message-ID directly; fetch it so later follow-ups can
-  // thread off this exact header value.
-  const sent = await gmail.users.messages.get({
-    userId: "me",
-    id: res.data.id!,
-    format: "metadata",
-    metadataHeaders: ["Message-ID"],
-  });
-  const messageIdHeader = sent.data.payload?.headers?.find((h) => h.name === "Message-ID")?.value;
+  // The send already succeeded by this point. Fetching the RFC822 Message-ID header is a nice-to-
+  // have for threading follow-ups off the exact header value, but it needs an extra scope
+  // (gmail.metadata) that an older Gmail connection may not have granted yet. Never let that
+  // lookup failing turn an email that was actually sent into a reported failure — fall back to
+  // Gmail's own message id, which is still enough to detect "already sent" on retries.
+  let messageIdHeader: string | undefined;
+  try {
+    const sent = await gmail.users.messages.get({
+      userId: "me",
+      id: res.data.id!,
+      format: "metadata",
+      metadataHeaders: ["Message-ID"],
+    });
+    messageIdHeader = sent.data.payload?.headers?.find((h) => h.name === "Message-ID")?.value ?? undefined;
+  } catch {
+    // Missing scope or any other lookup failure — keep going with the fallback id below.
+  }
 
   return { messageId: messageIdHeader ?? res.data.id ?? "" };
 }
