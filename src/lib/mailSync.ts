@@ -1,6 +1,7 @@
 import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 
 const FOLDERS = ["INBOX", "Sent", "Drafts", "Archive", "Spam", "Trash"];
 
@@ -40,7 +41,7 @@ async function syncFolder(client: ImapFlow, mailboxId: string, mailboxEmail: str
 
     const range = `${state.lastUid + 1}:*`;
     let maxUid = state.lastUid;
-    const rows: Parameters<typeof prisma.mailMessage.create>[0]["data"][] = [];
+    const rows: Prisma.MailMessageCreateManyInput[] = [];
 
     for await (const msg of client.fetch(range, { uid: true, envelope: true, source: true, flags: true })) {
       if (msg.uid <= state.lastUid) continue;
@@ -69,12 +70,8 @@ async function syncFolder(client: ImapFlow, mailboxId: string, mailboxEmail: str
       });
     }
 
-    for (const row of rows) {
-      await prisma.mailMessage.upsert({
-        where: { mailboxId_folder_uid: { mailboxId: row.mailboxId as string, folder: row.folder as string, uid: row.uid as number } },
-        update: {},
-        create: row,
-      });
+    if (rows.length > 0) {
+      await prisma.mailMessage.createMany({ data: rows, skipDuplicates: true });
     }
 
     if (maxUid > state.lastUid) {
