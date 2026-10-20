@@ -53,14 +53,32 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     });
     if (claim.count === 0) continue; // another poll already claimed it
 
+    // Follow-ups (order > 0) must thread under the initial email: same subject (Re: prefixed)
+    // and In-Reply-To/References pointing at the initial email's Message-ID.
+    let threadSubject = step.hasSubject ? step.subject : null;
+    let inReplyTo: string | null = null;
+    if (step.order > 0) {
+      const initialStep = await prisma.emailStepRecord.findFirst({
+        where: { leadId: step.leadId, order: 0 },
+      });
+      if (initialStep) {
+        const rootSubject = initialStep.hasSubject ? initialStep.subject : null;
+        if (rootSubject) {
+          threadSubject = /^re:/i.test(rootSubject) ? rootSubject : `Re: ${rootSubject}`;
+        }
+        inReplyTo = initialStep.messageId ?? null;
+      }
+    }
+
     return NextResponse.json({
       found: true,
       emailStepRecordId: step.id,
       leadId: step.leadId,
       to: step.lead.email,
-      subject: step.hasSubject ? step.subject : null,
+      subject: threadSubject,
       body: step.body,
       order: step.order,
+      inReplyTo,
       attachments: step.attachments.map((a) => ({ filename: a.filename, url: a.url })),
     });
   }
