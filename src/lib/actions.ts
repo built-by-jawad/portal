@@ -154,6 +154,61 @@ export async function updateLead(id: string, formData: FormData) {
   revalidatePath("/leads");
 }
 
+// Called from the n8n workflow watching the "Portal Data Paste" Google Sheet tab for new rows.
+// Only business-info fields come from the sheet — email subject/body are always written by hand
+// in the portal, never touched here. Skips creating a duplicate if a lead with the same
+// businessName + email already exists.
+export async function importLeadFromSheet(data: {
+  businessName: string;
+  contactName?: string | null;
+  email?: string | null;
+  secondaryEmail?: string | null;
+  phone?: string | null;
+  website?: string | null;
+  address?: string | null;
+  city?: string | null;
+  instagram?: string | null;
+  facebook?: string | null;
+  linkedin?: string | null;
+}) {
+  const businessName = data.businessName?.trim();
+  if (!businessName) throw new Error("businessName is required");
+
+  const email = data.email?.trim() || null;
+
+  const existing = await prisma.lead.findFirst({
+    where: {
+      businessName: { equals: businessName, mode: "insensitive" },
+      email: email ? { equals: email, mode: "insensitive" } : null,
+    },
+  });
+  if (existing) return { created: false, leadId: existing.id };
+
+  const address = data.address?.trim() || null;
+  const guessedTimezone = guessTimezoneFromAddress(address);
+
+  const lead = await prisma.lead.create({
+    data: {
+      businessName,
+      contactName: data.contactName?.trim() || null,
+      email,
+      secondaryEmails: data.secondaryEmail?.trim() ? [data.secondaryEmail.trim()] : [],
+      phone: data.phone?.trim() || null,
+      website: data.website?.trim() || null,
+      address,
+      city: data.city?.trim() || null,
+      instagram: data.instagram?.trim() || null,
+      facebook: data.facebook?.trim() || null,
+      linkedin: data.linkedin?.trim() || null,
+      timezone: guessedTimezone,
+    },
+  });
+
+  revalidatePath("/leads");
+  revalidatePath("/calendar");
+  return { created: true, leadId: lead.id };
+}
+
 export async function updateLeadMailbox(leadId: string, mailboxId: string) {
   await prisma.lead.update({
     where: { id: leadId },
