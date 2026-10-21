@@ -15,10 +15,13 @@ type Props = {
   dayNumber: number;
   date: string;
   completedAt: Date | null;
+  action: string | null;
 };
 
 // One card per profile per day — the unit the Engagement page is built around. Checking it off just
-// toggles this one EngagementDay; nothing cascades to the other 6 days for the same profile.
+// toggles this one EngagementDay; nothing cascades to the other 6 days for the same profile. The
+// action text can be customized per profile (see EngagementChecklistEditor) — this only falls back
+// to the standard wording when a day has none set.
 export default function EngagementDayCard({
   dayId,
   businessName,
@@ -28,12 +31,13 @@ export default function EngagementDayCard({
   dayNumber,
   date,
   completedAt,
+  action: actionOverride,
 }: Props) {
   const [pending, startTransition] = useTransition();
   const notify = useToast();
   const router = useRouter();
 
-  const action = ENGAGEMENT_DAY_ACTIONS[dayNumber] ?? `Day ${dayNumber}`;
+  const action = actionOverride ?? ENGAGEMENT_DAY_ACTIONS[dayNumber] ?? `Day ${dayNumber}`;
   const platformLabel = SOCIAL_PLATFORM_LABELS[platform as SocialPlatform] ?? platform;
 
   function toggle() {

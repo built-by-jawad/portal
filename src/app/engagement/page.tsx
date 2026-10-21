@@ -48,7 +48,15 @@ export default async function EngagementPage({
     const key = engagementGroupKey(p.leadId, p.businessName);
     const done = p.days.filter((d) => d.completedAt).length;
     const group = groupMap.get(key);
-    const entry = { platform: p.platform as SocialPlatform, profileUrl: p.profileUrl, done, total: p.days.length };
+    const entry = {
+      platform: p.platform as SocialPlatform,
+      profileUrl: p.profileUrl,
+      done,
+      total: p.days.length,
+      days: p.days
+        .map((d) => ({ id: d.id, dayNumber: d.dayNumber, action: d.action, completedAt: d.completedAt }))
+        .sort((a, b) => a.dayNumber - b.dayNumber),
+    };
     if (group) {
       group.platforms.push(entry);
     } else {
@@ -119,6 +127,7 @@ export default async function EngagementPage({
               dayNumber={d.dayNumber}
               date={d.date}
               completedAt={d.completedAt}
+              action={d.action}
             />
           ))}
         </div>

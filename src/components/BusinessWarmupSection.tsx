@@ -7,11 +7,13 @@ import { useToast } from "@/components/ToastProvider";
 import { SOCIAL_PLATFORM_LABELS, type SocialPlatform } from "@/lib/constants";
 import EngagementBusinessEditForm from "@/components/EngagementBusinessEditForm";
 
+export type ChecklistDay = { id: string; dayNumber: number; action: string | null; completedAt: Date | null };
+
 export type BusinessGroup = {
   groupKey: string;
   businessName: string;
   time: string | null;
-  platforms: { platform: SocialPlatform; profileUrl: string; done: number; total: number }[];
+  platforms: { platform: SocialPlatform; profileUrl: string; done: number; total: number; days: ChecklistDay[] }[];
 };
 
 // One card per business (not per platform). Select one or more, then Edit (single only) or
@@ -44,7 +46,7 @@ export default function BusinessWarmupSection({ groups }: { groups: BusinessGrou
                 groupKey={g.groupKey}
                 businessName={g.businessName}
                 time={g.time}
-                platformUrls={Object.fromEntries(g.platforms.map((p) => [p.platform, p.profileUrl]))}
+                platforms={g.platforms}
                 onCancel={() => setEditingKey(null)}
               />
             ) : (

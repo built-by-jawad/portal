@@ -3,18 +3,28 @@
 import { useState } from "react";
 import { updateEngagementBusiness } from "@/lib/actions";
 import { SOCIAL_PLATFORMS, SOCIAL_PLATFORM_LABELS, type SocialPlatform } from "@/lib/constants";
+import EngagementChecklistEditor from "@/components/EngagementChecklistEditor";
+import type { ChecklistDay } from "@/components/BusinessWarmupSection";
 
 type Props = {
   groupKey: string;
   businessName: string;
   time: string | null;
-  platformUrls: Partial<Record<SocialPlatform, string>>;
+  platforms: { platform: SocialPlatform; profileUrl: string; days: ChecklistDay[] }[];
   onCancel: () => void;
 };
 
 // Mirrors the "add business" form but prefilled: unchecking a platform here removes that
-// profile (and its days) on save, checking a new one adds and seeds it.
-export default function EngagementBusinessEditForm({ groupKey, businessName, time, platformUrls, onCancel }: Props) {
+// profile (and its days) on save, checking a new one adds and seeds it. Each active platform
+// shows its own 7-day checklist below, editable per day (rename or remove a day) — the standard
+// wording is only the starting point once a profile is created, not a fixed template.
+export default function EngagementBusinessEditForm({ groupKey, businessName, time, platforms, onCancel }: Props) {
+  const platformUrls = Object.fromEntries(platforms.map((p) => [p.platform, p.profileUrl])) as Partial<
+    Record<SocialPlatform, string>
+  >;
+  const daysByPlatform = Object.fromEntries(platforms.map((p) => [p.platform, p.days])) as Partial<
+    Record<SocialPlatform, ChecklistDay[]>
+  >;
   const [checkedPlatforms, setCheckedPlatforms] = useState<Set<SocialPlatform>>(
     new Set(Object.keys(platformUrls) as SocialPlatform[])
   );
@@ -57,25 +67,30 @@ export default function EngagementBusinessEditForm({ groupKey, businessName, tim
         <label className="mb-1.5 block text-sm font-medium text-ink">Active profiles</label>
         <div className="space-y-2">
           {SOCIAL_PLATFORMS.map((platform) => (
-            <div key={platform} className="flex items-center gap-2">
-              <label className="flex w-32 shrink-0 items-center gap-2 text-sm text-ink">
+            <div key={platform}>
+              <div className="flex items-center gap-2">
+                <label className="flex w-32 shrink-0 items-center gap-2 text-sm text-ink">
+                  <input
+                    type="checkbox"
+                    name={`platform_${platform}`}
+                    checked={checkedPlatforms.has(platform)}
+                    onChange={() => toggle(platform)}
+                    className="h-4 w-4 rounded border-mist/40 accent-green"
+                  />
+                  {SOCIAL_PLATFORM_LABELS[platform]}
+                </label>
                 <input
-                  type="checkbox"
-                  name={`platform_${platform}`}
-                  checked={checkedPlatforms.has(platform)}
-                  onChange={() => toggle(platform)}
-                  className="h-4 w-4 rounded border-mist/40 accent-green"
+                  type="url"
+                  name={`url_${platform}`}
+                  defaultValue={platformUrls[platform] ?? ""}
+                  placeholder="Profile link"
+                  disabled={!checkedPlatforms.has(platform)}
+                  className="flex-1 rounded-lg border border-mist/40 bg-white px-3 py-2 text-sm text-ink focus:border-green focus:outline-none disabled:bg-mist/10 disabled:text-slate"
                 />
-                {SOCIAL_PLATFORM_LABELS[platform]}
-              </label>
-              <input
-                type="url"
-                name={`url_${platform}`}
-                defaultValue={platformUrls[platform] ?? ""}
-                placeholder="Profile link"
-                disabled={!checkedPlatforms.has(platform)}
-                className="flex-1 rounded-lg border border-mist/40 bg-white px-3 py-2 text-sm text-ink focus:border-green focus:outline-none disabled:bg-mist/10 disabled:text-slate"
-              />
+              </div>
+              {checkedPlatforms.has(platform) && daysByPlatform[platform] && (
+                <EngagementChecklistEditor days={daysByPlatform[platform]!} />
+              )}
             </div>
           ))}
         </div>

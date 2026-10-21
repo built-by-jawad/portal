@@ -194,6 +194,10 @@ model EngagementDay {
   date        String
   completedAt DateTime?
   createdAt   DateTime          @default(now())
+  // Seeded from ENGAGEMENT_DAY_ACTIONS at creation (so every new profile still starts with the
+  // standard 7-day checklist) but editable per day from here on — falls back to the constant by
+  // dayNumber if null, which only happens for rows seeded before this column existed.
+  action      String?
 
   @@unique([profileId, dayNumber])
 }

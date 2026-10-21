@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import { del } from "@vercel/blob";
 import { guessTimezoneFromAddress } from "@/lib/timezone";
 import { addMailbox, removeMailbox, setMailboxActive, pickLeastLoadedMailbox } from "@/lib/mailboxes";
-import { ENGAGEMENT_DAYS, SOCIAL_PLATFORMS, type SocialPlatform } from "@/lib/constants";
+import { ENGAGEMENT_DAYS, ENGAGEMENT_DAY_ACTIONS, SOCIAL_PLATFORMS, type SocialPlatform } from "@/lib/constants";
 import { DEFAULT_PROSPECT_CHECKLIST } from "@/lib/prospectChecklist";
 import { todayInTimeZone, addDays } from "@/lib/scheduling";
 import { EMAIL_SEQUENCE_DAYS } from "@/lib/outreach";
@@ -332,6 +332,20 @@ export async function toggleEngagementDay(dayId: string) {
   revalidatePath("/engagement");
 }
 
+// Renames a single day's checklist item (e.g. "Follow" -> something else) for just this profile —
+// the standard ENGAGEMENT_DAY_ACTIONS wording is only the seed default, not a fixed template.
+export async function updateEngagementDayAction(dayId: string, action: string) {
+  await prisma.engagementDay.update({ where: { id: dayId }, data: { action: action.trim() || null } });
+  revalidatePath("/engagement");
+}
+
+// Drops one day from a profile's checklist entirely (e.g. "I don't need a Day 3 comment for this
+// one") — the other days are untouched.
+export async function deleteEngagementDay(dayId: string) {
+  await prisma.engagementDay.delete({ where: { id: dayId } });
+  revalidatePath("/engagement");
+}
+
 async function seedEngagementDays(profileId: string) {
   const today = todayInTimeZone(PAKISTAN_TZ);
   await prisma.engagementDay.createMany({
@@ -339,6 +353,7 @@ async function seedEngagementDays(profileId: string) {
       profileId,
       dayNumber: i + 1,
       date: addDays(today, i),
+      action: ENGAGEMENT_DAY_ACTIONS[i + 1] ?? null,
     })),
   });
 }
