@@ -1,18 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
-// Flat, folder-scoped message list for the /mail page's middle column — newest first.
-// mailboxId="all" merges this folder across every active mailbox instead of scoping to one.
+const PAGE_SIZE = 50;
+
+// Flat, folder-scoped message list for the /mail page's middle column — newest first, paginated
+// via a date cursor. mailboxId="all" merges this folder across every active mailbox instead of
+// scoping to one. starred=true ignores folder entirely and returns every flagged message in scope.
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const mailboxId = searchParams.get("mailboxId");
   const folder = searchParams.get("folder") ?? "INBOX";
+  const starred = searchParams.get("starred") === "true";
+  const cursor = searchParams.get("cursor");
   if (!mailboxId) return NextResponse.json({ error: "mailboxId is required" }, { status: 400 });
 
+  const where: Prisma.MailMessageWhereInput = mailboxId === "all" ? {} : { mailboxId };
+  if (starred) where.flagged = true;
+  else where.folder = folder;
+  if (cursor) where.date = { lt: new Date(cursor) };
+
   const messages = await prisma.mailMessage.findMany({
-    where: mailboxId === "all" ? { folder } : { mailboxId, folder },
+    where,
     orderBy: { date: "desc" },
-    take: 300,
+    take: PAGE_SIZE,
     select: {
       id: true,
       uid: true,
@@ -25,7 +36,9 @@ export async function GET(request: NextRequest) {
       textPlain: true,
       date: true,
       seen: true,
+      flagged: true,
       threadKey: true,
+      _count: { select: { attachments: true } },
     },
   });
 
@@ -34,7 +47,11 @@ export async function GET(request: NextRequest) {
       ...m,
       mailboxLabel: m.mailbox?.label || m.mailbox?.email,
       mailbox: undefined,
+      hasAttachments: m._count.attachments > 0,
+      _count: undefined,
       snippet: (m.textPlain ?? "").trim().replace(/\s+/g, " ").slice(0, 140),
     })),
+    hasMore: messages.length === PAGE_SIZE,
+    nextCursor: messages.length ? messages[messages.length - 1].date.toISOString() : null,
   });
 }

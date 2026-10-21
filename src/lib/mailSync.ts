@@ -1,7 +1,8 @@
 import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
+import { put } from "@vercel/blob";
 import { prisma } from "@/lib/prisma";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 const FOLDERS = ["INBOX", "Sent", "Drafts", "Archive", "Spam", "Trash"];
 
@@ -12,6 +13,22 @@ function getMailboxPassword(email: string): string {
   const password = map[email.toLowerCase()];
   if (!password) throw new Error(`No Titan password configured for ${email}`);
   return password;
+}
+
+async function withImapClient<T>(email: string, fn: (client: ImapFlow) => Promise<T>): Promise<T> {
+  const client = new ImapFlow({
+    host: "imap.titan.email",
+    port: 993,
+    secure: true,
+    auth: { user: email, pass: getMailboxPassword(email) },
+    logger: false,
+  });
+  await client.connect();
+  try {
+    return await fn(client);
+  } finally {
+    await client.logout().catch(() => client.close());
+  }
 }
 
 // Groups a conversation without relying on References headers (Titan replies often lack them):
@@ -41,7 +58,6 @@ async function syncFolder(client: ImapFlow, mailboxId: string, mailboxEmail: str
 
     const range = `${state.lastUid + 1}:*`;
     let maxUid = state.lastUid;
-    const rows: Prisma.MailMessageCreateManyInput[] = [];
 
     for await (const msg of client.fetch(range, { uid: true, envelope: true, source: true, flags: true })) {
       if (msg.uid <= state.lastUid) continue;
@@ -52,7 +68,7 @@ async function syncFolder(client: ImapFlow, mailboxId: string, mailboxEmail: str
       const toAddr = parsed.to && "value" in parsed.to ? parsed.to.value?.[0]?.address : undefined;
       const subject = parsed.subject ?? msg.envelope?.subject ?? "(no subject)";
 
-      rows.push({
+      const data: Prisma.MailMessageUncheckedCreateInput = {
         mailboxId,
         folder,
         uid: msg.uid,
@@ -67,11 +83,32 @@ async function syncFolder(client: ImapFlow, mailboxId: string, mailboxEmail: str
         textHtml: typeof parsed.html === "string" ? parsed.html : null,
         date: parsed.date ?? msg.envelope?.date ?? new Date(),
         seen: msg.flags?.has("\\Seen") ?? false,
-      });
-    }
+        flagged: msg.flags?.has("\\Flagged") ?? false,
+      };
 
-    if (rows.length > 0) {
-      await prisma.mailMessage.createMany({ data: rows, skipDuplicates: true });
+      try {
+        const created = await prisma.mailMessage.create({ data });
+        const attachments = (parsed.attachments ?? []).filter((a) => a.filename);
+        for (const att of attachments) {
+          const blob = await put(`mail-attachments/${created.id}/${att.filename}`, att.content, {
+            access: "public",
+            contentType: att.contentType,
+            addRandomSuffix: true,
+          });
+          await prisma.mailAttachment.create({
+            data: {
+              mailMessageId: created.id,
+              filename: att.filename ?? "attachment",
+              contentType: att.contentType,
+              size: att.content.length,
+              url: blob.url,
+            },
+          });
+        }
+      } catch (err) {
+        // Same UID appeared twice in this fetch batch (seen once on a prior run too) — already synced, skip it.
+        if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002")) throw err;
+      }
     }
 
     if (maxUid > state.lastUid) {
@@ -83,21 +120,11 @@ async function syncFolder(client: ImapFlow, mailboxId: string, mailboxEmail: str
 }
 
 export async function syncMailbox(mailboxId: string, email: string) {
-  const client = new ImapFlow({
-    host: "imap.titan.email",
-    port: 993,
-    secure: true,
-    auth: { user: email, pass: getMailboxPassword(email) },
-    logger: false,
-  });
-  await client.connect();
-  try {
+  await withImapClient(email, async (client) => {
     for (const folder of FOLDERS) {
       await syncFolder(client, mailboxId, email, folder);
     }
-  } finally {
-    await client.logout().catch(() => client.close());
-  }
+  });
 }
 
 export async function syncAllActiveMailboxes() {
@@ -117,17 +144,50 @@ export async function syncAllActiveMailboxes() {
 // Appends a raw RFC822 message to a mailbox's Sent folder right after a successful SMTP send, so
 // Titan's own Sent folder (and this portal's /mail page) show it — raw SMTP never does this itself.
 export async function appendToSent(email: string, rawMessage: string) {
-  const client = new ImapFlow({
-    host: "imap.titan.email",
-    port: 993,
-    secure: true,
-    auth: { user: email, pass: getMailboxPassword(email) },
-    logger: false,
-  });
-  await client.connect();
-  try {
+  await withImapClient(email, async (client) => {
     await client.append("Sent", rawMessage, ["\\Seen"]);
-  } finally {
-    await client.logout().catch(() => client.close());
-  }
+  });
+}
+
+// Flips \Seen / \Flagged on the real IMAP message. Callers update the MailMessage row themselves
+// once this resolves — keeps the DB and the real mailbox in agreement.
+export async function setMessageFlags(email: string, folder: string, uid: number, flags: { seen?: boolean; flagged?: boolean }) {
+  await withImapClient(email, async (client) => {
+    const lock = await client.getMailboxLock(folder);
+    try {
+      if (flags.seen === true) await client.messageFlagsAdd(String(uid), ["\\Seen"], { uid: true });
+      if (flags.seen === false) await client.messageFlagsRemove(String(uid), ["\\Seen"], { uid: true });
+      if (flags.flagged === true) await client.messageFlagsAdd(String(uid), ["\\Flagged"], { uid: true });
+      if (flags.flagged === false) await client.messageFlagsRemove(String(uid), ["\\Flagged"], { uid: true });
+    } finally {
+      lock.release();
+    }
+  });
+}
+
+// Moves a message to another real IMAP folder (e.g. Archive, Trash). The destination gets a new
+// UID assigned by the server — callers should delete the old MailMessage row and re-run
+// syncMailbox so the moved message is picked up fresh in its new folder.
+export async function moveMessage(email: string, fromFolder: string, uid: number, toFolder: string) {
+  await withImapClient(email, async (client) => {
+    const lock = await client.getMailboxLock(fromFolder);
+    try {
+      await client.messageMove(String(uid), toFolder, { uid: true });
+    } finally {
+      lock.release();
+    }
+  });
+}
+
+// Permanently removes a message from the server (flags \Deleted + expunges). Only meant to be
+// called on messages already sitting in Trash.
+export async function permanentlyDeleteMessage(email: string, folder: string, uid: number) {
+  await withImapClient(email, async (client) => {
+    const lock = await client.getMailboxLock(folder);
+    try {
+      await client.messageDelete(String(uid), { uid: true });
+    } finally {
+      lock.release();
+    }
+  });
 }

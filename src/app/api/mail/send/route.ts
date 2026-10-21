@@ -6,12 +6,13 @@ import { sendThreadedEmail } from "@/lib/mailSend";
 // optional — set it when replying so the new message threads under the original.
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
-  const { mailboxId, to, subject, text, inReplyTo } = body as {
+  const { mailboxId, to, subject, text, inReplyTo, attachments } = body as {
     mailboxId?: string;
     to?: string;
     subject?: string;
     text?: string;
     inReplyTo?: string;
+    attachments?: { filename: string; url: string }[];
   };
 
   if (!mailboxId || !to || !text) {
@@ -28,6 +29,7 @@ export async function POST(request: NextRequest) {
       subject: subject ?? "",
       text,
       inReplyTo: inReplyTo ?? null,
+      attachments,
     });
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {

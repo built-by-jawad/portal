@@ -113,13 +113,29 @@ model MailMessage {
   textHtml    String?
   date        DateTime
   seen        Boolean  @default(false)
+  flagged     Boolean  @default(false)
   // Set when this row was created by a send/reply from the portal itself (vs. picked up by sync),
   // so the UI doesn't need to wait for the next sync to show a just-sent message.
   sentByPortal Boolean @default(false)
   createdAt   DateTime @default(now())
 
+  attachments MailAttachment[]
+
   @@unique([mailboxId, folder, uid])
   @@index([mailboxId, threadKey])
+}
+
+// A file attachment on a synced MailMessage, stored in the same Vercel Blob store as everything
+// else (mail-attachments/ prefix). Populated during sync in src/lib/mailSync.ts.
+model MailAttachment {
+  id            String      @id @default(cuid())
+  mailMessageId String
+  mailMessage   MailMessage @relation(fields: [mailMessageId], references: [id], onDelete: Cascade)
+  filename      String
+  contentType   String
+  size          Int
+  url           String
+  createdAt     DateTime    @default(now())
 }
 
 // Tracks the highest UID already synced per mailbox+folder, so each sync only fetches what's new.
