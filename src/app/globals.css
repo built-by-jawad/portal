@@ -8,6 +8,11 @@
   --color-slate: #5c6b7a;
   --color-mist: #a9bcc9;
   --color-sidebar: #0f1b2d;
+  /* Fixed regardless of .dark — the sidebar's own navy never swaps, so its text tokens
+     can't borrow --color-mist/--color-slate (those invert for dark mode and would go
+     near-invisible against the still-dark sidebar background). */
+  --color-sidebar-mist: #a9bcc9;
+  --color-sidebar-slate: #8294a3;
 }
 
 /* Dark theme: ink/paper swap roles (text vs background), surfaces and borders darken. The sidebar
@@ -28,6 +33,8 @@
   --color-slate: var(--color-slate);
   --color-mist: var(--color-mist);
   --color-sidebar: var(--color-sidebar);
+  --color-sidebar-mist: var(--color-sidebar-mist);
+  --color-sidebar-slate: var(--color-sidebar-slate);
 
   --font-display: var(--font-space-grotesk);
   --font-sans: var(--font-inter);

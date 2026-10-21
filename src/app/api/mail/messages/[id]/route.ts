@@ -5,7 +5,10 @@ import { prisma } from "@/lib/prisma";
 // the detail pane on the right side of /mail.
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const message = await prisma.mailMessage.findUnique({ where: { id } });
+  const message = await prisma.mailMessage.findUnique({
+    where: { id },
+    include: { mailbox: { select: { label: true, email: true } } },
+  });
   if (!message) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   if (!message.seen) {
@@ -15,7 +18,10 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   const thread = await prisma.mailMessage.findMany({
     where: { mailboxId: message.mailboxId, threadKey: message.threadKey },
     orderBy: { date: "asc" },
+    include: { mailbox: { select: { label: true, email: true } } },
   });
 
-  return NextResponse.json({ message: { ...message, seen: true }, thread });
+  const attach = (m: typeof message) => ({ ...m, mailboxLabel: m.mailbox?.label || m.mailbox?.email, mailbox: undefined });
+
+  return NextResponse.json({ message: { ...attach(message), seen: true }, thread: thread.map(attach) });
 }

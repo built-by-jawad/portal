@@ -41,7 +41,7 @@ export default function ThemeToggle({ collapsed }: { collapsed: boolean }) {
         type="button"
         onClick={() => choose(next.value)}
         title={`Theme: ${OPTIONS[i].label} (click for ${next.label})`}
-        className="mt-4 flex w-full items-center justify-center rounded-lg py-2 text-mist hover:bg-white/5"
+        className="mt-4 flex w-full items-center justify-center rounded-lg py-2 text-sidebar-mist hover:bg-white/5"
       >
         {OPTIONS[i].icon}
       </button>
@@ -57,7 +57,7 @@ export default function ThemeToggle({ collapsed }: { collapsed: boolean }) {
           onClick={() => choose(o.value)}
           aria-pressed={theme === o.value}
           className={`flex-1 rounded-md px-2 py-1.5 text-xs font-semibold ${
-            theme === o.value ? "bg-green/20 text-green" : "text-mist hover:text-[#f7f5f0]"
+            theme === o.value ? "bg-green/20 text-green" : "text-sidebar-mist hover:text-[#f7f5f0]"
           }`}
         >
           {o.icon} {o.label}

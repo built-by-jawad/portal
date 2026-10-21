@@ -89,7 +89,7 @@ export default function Sidebar({
           onClick={toggleCollapsed}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className="absolute -right-3 top-8 hidden h-6 w-6 items-center justify-center rounded-full border border-mist/30 bg-sidebar text-xs text-mist transition hover:text-[#f7f5f0] md:flex"
+          className="absolute -right-3 top-8 hidden h-6 w-6 items-center justify-center rounded-full border border-sidebar-mist/30 bg-sidebar text-xs text-sidebar-mist transition hover:text-[#f7f5f0] md:flex"
         >
           {collapsed ? "›" : "‹"}
         </button>
@@ -112,7 +112,7 @@ export default function Sidebar({
         </Link>
 
         {!collapsed && (
-          <p className="mb-3 px-2 text-xs font-semibold uppercase tracking-widest text-slate">
+          <p className="mb-3 px-2 text-xs font-semibold uppercase tracking-widest text-sidebar-slate">
             Outreach Portal
           </p>
         )}
@@ -129,7 +129,7 @@ export default function Sidebar({
               } ${
                 isActive(item.href)
                   ? "bg-green/15 text-green"
-                  : "text-mist hover:bg-white/5 hover:text-[#f7f5f0]"
+                  : "text-sidebar-mist hover:bg-white/5 hover:text-[#f7f5f0]"
               }`}
             >
               <span className="w-4 text-center">{item.icon}</span>
@@ -144,7 +144,7 @@ export default function Sidebar({
               {profileImageUrl ? (
                 <img src={profileImageUrl} alt={profileName} className="h-7 w-7 rounded-full object-cover" />
               ) : (
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-xs text-mist">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-xs text-sidebar-mist">
                   {profileName.slice(0, 1).toUpperCase()}
                 </div>
               )}
@@ -152,7 +152,7 @@ export default function Sidebar({
                 <div className="flex-1 overflow-hidden">
                   <p className="truncate text-xs font-medium text-[#f7f5f0]">{profileName}</p>
                   <form action="/api/logout" method="post">
-                    <button type="submit" className="text-xs text-mist hover:text-[#f7f5f0]">
+                    <button type="submit" className="text-xs text-sidebar-mist hover:text-[#f7f5f0]">
                       Log out
                     </button>
                   </form>
@@ -162,7 +162,7 @@ export default function Sidebar({
           )}
           <ThemeToggle collapsed={collapsed} />
           {!collapsed && (
-            <p className="mt-4 hidden text-xs text-slate md:block">Found. Chosen. Booked.</p>
+            <p className="mt-4 hidden text-xs text-sidebar-slate md:block">Found. Chosen. Booked.</p>
           )}
         </div>
       </aside>
