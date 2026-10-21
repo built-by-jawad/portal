@@ -88,6 +88,7 @@ function formatSize(bytes: number) {
 
 const ALL = "all";
 const RAIL_KEY = "mail-rail-collapsed";
+const LIST_KEY = "mail-list-collapsed";
 
 export default function MailClient() {
   const [mailboxes, setMailboxes] = useState<Mailbox[]>([]);
@@ -108,6 +109,8 @@ export default function MailClient() {
 
   const [railCollapsed, setRailCollapsed] = useState(false);
   const [railHydrated, setRailHydrated] = useState(false);
+  const [listCollapsed, setListCollapsed] = useState(false);
+  const [listHydrated, setListHydrated] = useState(false);
 
   // Mobile only: which single pane is on screen. Desktop (md+) ignores this and shows all panes.
   const [mobileView, setMobileView] = useState<"rail" | "list" | "detail">("list");
@@ -125,12 +128,22 @@ export default function MailClient() {
   useEffect(() => {
     setRailCollapsed(localStorage.getItem(RAIL_KEY) === "true");
     setRailHydrated(true);
+    setListCollapsed(localStorage.getItem(LIST_KEY) === "true");
+    setListHydrated(true);
   }, []);
 
   function toggleRailCollapsed() {
     setRailCollapsed((prev) => {
       const next = !prev;
       localStorage.setItem(RAIL_KEY, String(next));
+      return next;
+    });
+  }
+
+  function toggleListCollapsed() {
+    setListCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem(LIST_KEY, String(next));
       return next;
     });
   }
@@ -422,7 +435,7 @@ export default function MailClient() {
         <div
           className={`${
             mobileView === "rail" ? "flex" : "hidden"
-          } relative w-full shrink-0 flex-col overflow-y-auto border-r border-mist/20 p-3 md:flex ${railWidthClass} ${
+          } relative w-full shrink-0 flex-col border-r border-mist/20 md:flex ${railWidthClass} ${
             railHydrated ? "transition-[width] duration-150" : ""
           }`}
         >
@@ -430,11 +443,12 @@ export default function MailClient() {
             onClick={toggleRailCollapsed}
             aria-label={railCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             title={railCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className="absolute -right-3 top-3 hidden h-6 w-6 items-center justify-center rounded-full border border-mist/30 bg-paper text-xs text-slate transition hover:text-ink md:flex"
+            className="absolute -right-3 top-3 z-10 hidden h-6 w-6 items-center justify-center rounded-full border border-mist/30 bg-paper text-xs text-slate shadow-sm transition hover:text-ink md:flex"
           >
             {railCollapsed ? "›" : "‹"}
           </button>
 
+          <div className="flex-1 overflow-y-auto p-3">
           {!railCollapsed && <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-slate">Mailboxes</p>}
 
           <button
@@ -492,14 +506,35 @@ export default function MailClient() {
               </button>
             ))}
           </div>
+          </div>
         </div>
 
         {/* Message list */}
         <div
           className={`${
             mobileView === "list" ? "flex" : "hidden"
-          } w-full shrink-0 flex-col overflow-hidden border-r border-mist/20 md:flex md:w-96`}
+          } relative w-full shrink-0 flex-col border-r border-mist/20 md:flex ${listCollapsed ? "md:w-10" : "md:w-96"} ${
+            listHydrated ? "transition-[width] duration-150" : ""
+          }`}
         >
+          <button
+            onClick={toggleListCollapsed}
+            aria-label={listCollapsed ? "Expand message list" : "Collapse message list"}
+            title={listCollapsed ? "Expand message list" : "Collapse message list"}
+            className="absolute -right-3 top-3 z-10 hidden h-6 w-6 items-center justify-center rounded-full border border-mist/30 bg-paper text-xs text-slate shadow-sm transition hover:text-ink md:flex"
+          >
+            {listCollapsed ? "›" : "‹"}
+          </button>
+
+          {listCollapsed && (
+            <div className="hidden h-full flex-col items-center gap-2 pt-10 md:flex">
+              {filteredMessages.some((m) => !m.seen) && <span className="h-2 w-2 shrink-0 rounded-full bg-green" />}
+              <span className="text-xs text-slate" style={{ writingMode: "vertical-rl" }}>
+                {filteredMessages.length} messages
+              </span>
+            </div>
+          )}
+          <div className={`flex h-full flex-col overflow-hidden ${listCollapsed ? "md:hidden" : ""}`}>
           {selectedIds.size > 0 ? (
             <div className="flex items-center gap-2 border-b border-mist/10 bg-mist/10 px-3 py-2">
               <span className="text-xs font-semibold text-ink">{selectedIds.size} selected</span>
@@ -609,6 +644,7 @@ export default function MailClient() {
               </div>
             ))}
             {loadingMore && <p className="p-3 text-center text-xs text-slate">Loading more…</p>}
+          </div>
           </div>
         </div>
 
