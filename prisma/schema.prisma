@@ -239,6 +239,12 @@ model Task {
   createdById String?
   createdBy   Profile? @relation(fields: [createdById], references: [id], onDelete: SetNull)
   visibleToAll Boolean @default(true)
+
+  // Optional time of day (HH:mm, Asia/Karachi — the team's own timezone, not per-lead) for the
+  // "due in ~10 minutes" WhatsApp reminder. reminderSentAt guards against sending that reminder
+  // twice across cron runs; null means not sent yet.
+  dueTime        String?
+  reminderSentAt DateTime?
 }
 
 model TaskMedia {
@@ -445,6 +451,12 @@ model Profile {
   imageUrl     String?
   role         String   @default("MEMBER")
   createdAt    DateTime @default(now())
+
+  // WhatsApp number for this profile's own notifications (daily planning prompts, task-due
+  // reminders). whatsappEnabled gates sending independently of whether a phone is set, so a
+  // number can be on file without opting in.
+  phone           String?
+  whatsappEnabled Boolean @default(false)
 
   permissions   ProfilePermission[]
   expensesPaid  Expense[]           @relation("ExpensePaidBy")

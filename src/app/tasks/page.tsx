@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 const PAKISTAN_TZ = "Asia/Karachi";
 
-function toRow<T extends { id: string; title: string; description: string | null; leadId: string | null; dueDate: string | null; completedAt: Date | null; visibleToAll: boolean; lead?: { businessName: string } | null }>(
+function toRow<T extends { id: string; title: string; description: string | null; leadId: string | null; dueDate: string | null; dueTime: string | null; completedAt: Date | null; visibleToAll: boolean; lead?: { businessName: string } | null }>(
   t: T
 ) {
   return {
@@ -23,6 +23,7 @@ function toRow<T extends { id: string; title: string; description: string | null
     leadId: t.leadId,
     leadBusinessName: t.lead?.businessName ?? null,
     dueDate: t.dueDate,
+    dueTime: t.dueTime,
     completedAt: t.completedAt,
     visibleToAll: t.visibleToAll,
   };

@@ -55,6 +55,8 @@ export default async function ProfilesPage() {
                 name: profile.name,
                 email: profile.email,
                 role: profile.role,
+                phone: profile.phone,
+                whatsappEnabled: profile.whatsappEnabled,
                 permissions: profile.permissions.map((p) => ({ page: p.page, canView: p.canView, canEdit: p.canEdit })),
               }}
             />

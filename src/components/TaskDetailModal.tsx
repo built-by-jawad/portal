@@ -14,6 +14,7 @@ type TaskDetail = {
   source: string | null;
   leadId: string | null;
   dueDate: string | null;
+  dueTime: string | null;
   completedAt: string | null;
   media: Media[];
   visibleToAll: boolean;
@@ -74,6 +75,7 @@ export default function TaskDetailModal({ taskId, onClose }: { taskId: string; o
   const [source, setSource] = useState("");
   const [leadId, setLeadId] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [dueTime, setDueTime] = useState("");
   const [media, setMedia] = useState<Media[]>([]);
   const [visibleToAll, setVisibleToAll] = useState(true);
 
@@ -89,6 +91,7 @@ export default function TaskDetailModal({ taskId, onClose }: { taskId: string; o
         setSource(d.task.source ?? "");
         setLeadId(d.task.leadId ?? "");
         setDueDate(d.task.dueDate ?? "");
+        setDueTime(d.task.dueTime ?? "");
         setMedia(d.task.media);
         setVisibleToAll(d.task.visibleToAll);
         setLoading(false);
@@ -136,6 +139,7 @@ export default function TaskDetailModal({ taskId, onClose }: { taskId: string; o
     fd.set("source", source);
     fd.set("leadId", leadId);
     fd.set("dueDate", dueDate);
+    fd.set("dueTime", dueTime);
     fd.set("visibilitySubmitted", "true");
     if (visibleToAll) fd.set("visibleToAll", "true");
     run(() => updateTask(taskId, fd), "Saved");
@@ -205,6 +209,11 @@ export default function TaskDetailModal({ taskId, onClose }: { taskId: string; o
                   <label className="mb-1.5 block text-sm font-medium text-ink">Due date</label>
                   <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={field} />
                 </div>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-ink">Due time (for WhatsApp reminder)</label>
+                <input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} className={field} />
               </div>
 
               <label className="flex items-center gap-2 text-sm text-ink">

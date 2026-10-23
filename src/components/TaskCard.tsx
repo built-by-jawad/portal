@@ -11,6 +11,7 @@ type Props = {
   leadId: string | null;
   leadBusinessName: string | null;
   dueDate: string | null;
+  dueTime: string | null;
   completedAt: Date | null;
   overdue?: boolean;
   selected?: boolean;
@@ -28,6 +29,7 @@ export default function TaskCard({
   leadId,
   leadBusinessName,
   dueDate,
+  dueTime,
   completedAt,
   overdue,
   selected,
@@ -65,6 +67,7 @@ export default function TaskCard({
               {dueDate && (
                 <p className={`text-xs ${overdue ? "font-semibold text-red-600" : "text-slate"}`}>
                   Due {dueDate}
+                  {dueTime ? ` at ${dueTime}` : ""}
                   {overdue ? " · Overdue" : ""}
                 </p>
               )}

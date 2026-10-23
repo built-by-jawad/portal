@@ -9,6 +9,8 @@ type Existing = {
   name: string;
   email: string;
   role: string;
+  phone: string | null;
+  whatsappEnabled: boolean;
   permissions: { page: string; canView: boolean; canEdit: boolean }[];
 };
 
@@ -60,7 +62,18 @@ export default function ProfileForm({ existing }: { existing?: Existing }) {
           accept="image/*"
           className="rounded-md border border-mist/40 bg-transparent px-3 py-2 text-xs outline-none"
         />
+        <input
+          name="phone"
+          placeholder="WhatsApp number, e.g. +923159782971"
+          defaultValue={existing?.phone ?? ""}
+          className="rounded-md border border-mist/40 bg-transparent px-3 py-2 text-sm outline-none focus:border-green"
+        />
       </div>
+
+      <label className="flex items-center gap-2 text-sm text-slate">
+        <input type="checkbox" name="whatsappEnabled" defaultChecked={existing?.whatsappEnabled} />
+        Send WhatsApp notifications to this number (daily planning check-ins, task-due reminders)
+      </label>
 
       <label className="flex items-center gap-2 text-sm text-slate">
         <input

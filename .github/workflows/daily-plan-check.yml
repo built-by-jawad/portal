@@ -1,0 +1,24 @@
+name: WhatsApp daily planning check-in
+
+# Asks everyone opted in to WhatsApp (via /api/cron/daily-plan-check) whether they've planned
+# today (morning) or tomorrow (evening) — read-only, never sends unless someone's opted in.
+on:
+  schedule:
+    - cron: "0 3 * * *" # 8:00am Asia/Karachi
+    - cron: "0 17 * * *" # 10:00pm Asia/Karachi
+  workflow_dispatch: {}
+
+jobs:
+  daily-plan-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine when (morning/evening) from UTC hour
+        id: when
+        run: |
+          hour=$(date -u +%H)
+          if [ "$hour" = "03" ]; then echo "value=morning" >> "$GITHUB_OUTPUT"; else echo "value=evening" >> "$GITHUB_OUTPUT"; fi
+      - name: Call /api/cron/daily-plan-check
+        run: |
+          curl -sf -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "https://portal-built-by-jawad.vercel.app/api/cron/daily-plan-check?when=${{ steps.when.outputs.value }}&x-vercel-protection-bypass=${{ secrets.VERCEL_PROTECTION_BYPASS }}"

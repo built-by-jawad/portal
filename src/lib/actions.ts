@@ -390,6 +390,7 @@ export async function createTask(formData: FormData) {
       description: str(formData, "description"),
       leadId: str(formData, "leadId"),
       dueDate: str(formData, "dueDate"),
+      dueTime: str(formData, "dueTime"),
       createdById: profile?.id ?? null,
       visibleToAll: checked(formData, "visibleToAll"),
     },
@@ -400,6 +401,11 @@ export async function createTask(formData: FormData) {
 }
 
 export async function updateTask(id: string, formData: FormData) {
+  const dueDate = str(formData, "dueDate");
+  const dueTime = str(formData, "dueTime");
+  const existing = await prisma.task.findUnique({ where: { id }, select: { dueDate: true, dueTime: true } });
+  const dueChanged = existing && (existing.dueDate !== dueDate || existing.dueTime !== dueTime);
+
   await prisma.task.update({
     where: { id },
     data: {
@@ -407,7 +413,9 @@ export async function updateTask(id: string, formData: FormData) {
       description: str(formData, "description"),
       source: str(formData, "source"),
       leadId: str(formData, "leadId"),
-      dueDate: str(formData, "dueDate"),
+      dueDate,
+      dueTime,
+      ...(dueChanged ? { reminderSentAt: null } : {}),
       ...(formData.has("visibilitySubmitted") ? { visibleToAll: checked(formData, "visibleToAll") } : {}),
     },
   });

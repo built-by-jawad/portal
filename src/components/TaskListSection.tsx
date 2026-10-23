@@ -14,6 +14,7 @@ type Task = {
   leadId: string | null;
   leadBusinessName: string | null;
   dueDate: string | null;
+  dueTime: string | null;
   completedAt: Date | null;
   visibleToAll: boolean;
 };
@@ -65,6 +66,7 @@ export default function TaskListSection({
           leadId={t.leadId}
           leadBusinessName={t.leadBusinessName}
           dueDate={t.dueDate}
+          dueTime={t.dueTime}
           completedAt={t.completedAt}
           visibleToAll={t.visibleToAll}
           overdue={overdue}

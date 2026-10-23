@@ -45,9 +45,11 @@ export async function createProfile(formData: FormData) {
 
   const imageUrl = await uploadImage(formData);
   const passwordHash = await bcrypt.hash(password, 10);
+  const phone = str(formData, "phone");
+  const whatsappEnabled = formData.get("whatsappEnabled") === "on";
 
   const profile = await prisma.profile.create({
-    data: { name, email, passwordHash, imageUrl, role },
+    data: { name, email, passwordHash, imageUrl, role, phone, whatsappEnabled },
   });
 
   if (role !== "ADMIN") await savePermissions(profile.id, formData);
@@ -66,6 +68,8 @@ export async function updateProfile(formData: FormData) {
   const password = str(formData, "password");
 
   const imageUrl = await uploadImage(formData);
+  const phone = str(formData, "phone");
+  const whatsappEnabled = formData.get("whatsappEnabled") === "on";
 
   await prisma.profile.update({
     where: { id },
@@ -73,6 +77,8 @@ export async function updateProfile(formData: FormData) {
       name,
       email,
       role,
+      phone,
+      whatsappEnabled,
       ...(imageUrl ? { imageUrl } : {}),
       ...(password ? { passwordHash: await bcrypt.hash(password, 10) } : {}),
     },
