@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { scheduledToUtc, todayInTimeZone } from "@/lib/scheduling";
+import { scheduledToUtc, todayInTimeZone, formatTime12h } from "@/lib/scheduling";
 import { recipientsForTask, sendWhatsApp } from "@/lib/whatsapp";
 
 const TEAM_TZ = "Asia/Karachi";
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
 
     const phones = await recipientsForTask(task);
     if (phones.length > 0) {
-      const text = `⏰ "${task.title}" is due in about 10 minutes (${task.dueTime}).`;
+      const text = `⏰ "${task.title}" is due in about 10 minutes (${formatTime12h(task.dueTime!)}).`;
       await Promise.all(phones.map((phone) => sendWhatsApp(phone, text)));
       sent++;
     }

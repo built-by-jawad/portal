@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import TaskDetailModal from "@/components/TaskDetailModal";
+import { formatTime12h } from "@/lib/scheduling";
 
 type Props = {
   id: string;
@@ -67,7 +68,7 @@ export default function TaskCard({
               {dueDate && (
                 <p className={`text-xs ${overdue ? "font-semibold text-red-600" : "text-slate"}`}>
                   Due {dueDate}
-                  {dueTime ? ` at ${dueTime}` : ""}
+                  {dueTime ? ` at ${formatTime12h(dueTime)}` : ""}
                   {overdue ? " · Overdue" : ""}
                 </p>
               )}

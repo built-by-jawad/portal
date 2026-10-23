@@ -61,6 +61,18 @@ export function isWithinSendWindow(timeZone: string, now: Date = new Date()): bo
   return minutes >= 8 * 60 + 30 && minutes <= 10 * 60 + 30;
 }
 
+// Formats a "HH:mm" 24-hour string (as stored on Task.dueTime) as 12-hour clock time, e.g.
+// "09:05" -> "9:05 AM", "23:45" -> "11:45 PM". Returns the input unchanged if it isn't HH:mm.
+export function formatTime12h(time: string): string {
+  const match = time.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return time;
+  const hour24 = Number(match[1]);
+  const minute = match[2];
+  const period = hour24 >= 12 ? "PM" : "AM";
+  const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
+  return `${hour12}:${minute} ${period}`;
+}
+
 export type CalendarView = "today" | "week" | "month";
 
 // Adds days to a YYYY-MM-DD string, staying in plain calendar-date arithmetic (no timezone
