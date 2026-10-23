@@ -15,6 +15,7 @@ type Props = {
   overdue?: boolean;
   selected?: boolean;
   onToggleSelect?: () => void;
+  visibleToAll?: boolean;
 };
 
 // No mark-done/delete buttons here on purpose — those are bulk actions now (select tasks, then
@@ -31,6 +32,7 @@ export default function TaskCard({
   overdue,
   selected,
   onToggleSelect,
+  visibleToAll = true,
 }: Props) {
   const [open, setOpen] = useState(false);
 
@@ -71,14 +73,21 @@ export default function TaskCard({
 
           {description && <p className="mb-2 text-sm text-slate">{description}</p>}
 
-          {leadId && leadBusinessName && (
-            <Link
-              href={`/leads/${leadId}`}
-              className="inline-flex items-center rounded-full bg-mist/20 px-2.5 py-1 text-xs font-semibold text-ink transition hover:bg-mist/30"
-            >
-              {leadBusinessName}
-            </Link>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {leadId && leadBusinessName && (
+              <Link
+                href={`/leads/${leadId}`}
+                className="inline-flex items-center rounded-full bg-mist/20 px-2.5 py-1 text-xs font-semibold text-ink transition hover:bg-mist/30"
+              >
+                {leadBusinessName}
+              </Link>
+            )}
+            {!visibleToAll && (
+              <span className="inline-flex items-center rounded-full bg-ink/10 px-2.5 py-1 text-xs font-semibold text-ink">
+                🔒 Only me
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </div>

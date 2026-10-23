@@ -6,12 +6,14 @@ import TaskCalendar from "@/components/TaskCalendar";
 import { type CalendarGridItem } from "@/components/CalendarGrid";
 import { prisma } from "@/lib/prisma";
 import { todayInTimeZone, isInView, type CalendarView } from "@/lib/scheduling";
+import { getCurrentProfile } from "@/lib/auth";
+import type { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
 const PAKISTAN_TZ = "Asia/Karachi";
 
-function toRow<T extends { id: string; title: string; description: string | null; leadId: string | null; dueDate: string | null; completedAt: Date | null; lead?: { businessName: string } | null }>(
+function toRow<T extends { id: string; title: string; description: string | null; leadId: string | null; dueDate: string | null; completedAt: Date | null; visibleToAll: boolean; lead?: { businessName: string } | null }>(
   t: T
 ) {
   return {
@@ -22,6 +24,7 @@ function toRow<T extends { id: string; title: string; description: string | null
     leadBusinessName: t.lead?.businessName ?? null,
     dueDate: t.dueDate,
     completedAt: t.completedAt,
+    visibleToAll: t.visibleToAll,
   };
 }
 
@@ -37,18 +40,24 @@ export default async function TasksPage({
       : "overdue";
 
   const pakistanToday = todayInTimeZone(PAKISTAN_TZ);
+  const profile = await getCurrentProfile();
+
+  // Admins see every task; everyone else only sees tasks marked visible to all profiles, plus
+  // whatever they personally added (even if they kept it private to themselves).
+  const visibilityFilter: Prisma.TaskWhereInput =
+    profile && !profile.isAdmin ? { OR: [{ visibleToAll: true }, { createdById: profile.id }] } : {};
 
   const doneTasksPromise =
     view === "done"
       ? prisma.task.findMany({
-          where: { completedAt: { not: null } },
+          where: { completedAt: { not: null }, ...visibilityFilter },
           relationLoadStrategy: "join",
           include: { lead: { select: { businessName: true } } },
           orderBy: { completedAt: "desc" },
         })
       : null;
   const openTasks = await prisma.task.findMany({
-    where: { completedAt: null },
+    where: { completedAt: null, ...visibilityFilter },
     relationLoadStrategy: "join",
     include: { lead: { select: { businessName: true } } },
     orderBy: { dueDate: "asc" },

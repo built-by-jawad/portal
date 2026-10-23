@@ -47,10 +47,19 @@ export default async function DashboardPage() {
                       {step.scheduledDate! < today ? " · overdue" : ""}
                     </p>
                   </div>
-                  <span className="shrink-0 rounded-full bg-mist/20 px-2.5 py-1 text-xs font-semibold text-ink">
-                    {step.scheduledTime || "—"}
-                    {step.scheduledTimezone ? ` (${step.scheduledTimezone})` : ""}
-                  </span>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                        step.status === "QUEUED" ? "bg-amber-100 text-amber-800" : "bg-mist/20 text-ink"
+                      }`}
+                    >
+                      {step.status === "QUEUED" ? "Queued — sending soon" : "Not sent yet"}
+                    </span>
+                    <span className="rounded-full bg-mist/20 px-2.5 py-1 text-xs font-semibold text-ink">
+                      {step.scheduledTime || "—"}
+                      {step.scheduledTimezone ? ` (${step.scheduledTimezone})` : ""}
+                    </span>
+                  </div>
                 </Link>
               </li>
             ))}

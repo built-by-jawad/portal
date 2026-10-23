@@ -15,6 +15,7 @@ type Task = {
   leadBusinessName: string | null;
   dueDate: string | null;
   completedAt: Date | null;
+  visibleToAll: boolean;
 };
 
 // One card list with checkboxes + a bulk action bar. Acting on a single task just means
@@ -65,6 +66,7 @@ export default function TaskListSection({
           leadBusinessName={t.leadBusinessName}
           dueDate={t.dueDate}
           completedAt={t.completedAt}
+          visibleToAll={t.visibleToAll}
           overdue={overdue}
           selected={selected.has(t.id)}
           onToggleSelect={() => toggle(t.id)}

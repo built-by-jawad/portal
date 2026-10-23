@@ -3,7 +3,7 @@ import { getActionItems, formatActionItemsForSlack } from "@/lib/notifications";
 import { sendSlackMessage } from "@/lib/slack";
 
 // Triggered on a schedule (see .github/workflows/notify.yml) to post a Slack digest of anything
-// due — unsent scheduled emails, unmarked engagement check-ins. Sends nothing if the queue is empty.
+// due — unsent scheduled emails, unfinished tasks. Sends nothing if the queue is empty.
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
   if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -20,7 +20,6 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     sent: !!message,
     dueEmails: items.dueEmails.length,
-    dueEngagement: items.dueEngagement.length,
     dueTasks: items.dueTasks.length,
   });
 }

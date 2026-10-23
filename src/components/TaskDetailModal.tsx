@@ -16,6 +16,7 @@ type TaskDetail = {
   dueDate: string | null;
   completedAt: string | null;
   media: Media[];
+  visibleToAll: boolean;
 };
 
 const field =
@@ -74,6 +75,7 @@ export default function TaskDetailModal({ taskId, onClose }: { taskId: string; o
   const [leadId, setLeadId] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [media, setMedia] = useState<Media[]>([]);
+  const [visibleToAll, setVisibleToAll] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,6 +90,7 @@ export default function TaskDetailModal({ taskId, onClose }: { taskId: string; o
         setLeadId(d.task.leadId ?? "");
         setDueDate(d.task.dueDate ?? "");
         setMedia(d.task.media);
+        setVisibleToAll(d.task.visibleToAll);
         setLoading(false);
       });
     return () => {
@@ -133,6 +136,8 @@ export default function TaskDetailModal({ taskId, onClose }: { taskId: string; o
     fd.set("source", source);
     fd.set("leadId", leadId);
     fd.set("dueDate", dueDate);
+    fd.set("visibilitySubmitted", "true");
+    if (visibleToAll) fd.set("visibleToAll", "true");
     run(() => updateTask(taskId, fd), "Saved");
   }
 
@@ -201,6 +206,16 @@ export default function TaskDetailModal({ taskId, onClose }: { taskId: string; o
                   <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={field} />
                 </div>
               </div>
+
+              <label className="flex items-center gap-2 text-sm text-ink">
+                <input
+                  type="checkbox"
+                  checked={visibleToAll}
+                  onChange={(e) => setVisibleToAll(e.target.checked)}
+                  className="h-4 w-4 rounded border-mist/40 accent-green"
+                />
+                Visible to other profiles with Tasks access
+              </label>
 
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-ink">Images &amp; files</label>

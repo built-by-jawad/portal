@@ -6,27 +6,22 @@ const PAKISTAN_TZ = "Asia/Karachi";
 
 export type ActionItems = {
   dueEmails: { leadId: string; businessName: string; label: string; date: string }[];
-  dueEngagement: { businessName: string; platform: string; dayNumber: number; date: string }[];
   dueTasks: { title: string; businessName: string | null; date: string }[];
 };
 
 // Everything that's due (today or overdue, in Pakistan time) and still needs a human action: an
-// outreach email not yet sent, an engagement check-in not yet marked done, or a task not yet done.
+// outreach email not yet sent, or a task not yet done.
 // Used both by the Slack digest cron and could back an in-app badge later.
 export async function getActionItems(): Promise<ActionItems> {
   const today = todayInTimeZone(PAKISTAN_TZ);
 
-  const [emailCandidates, engagementCandidates, taskCandidates] = await Promise.all([
+  const [emailCandidates, taskCandidates] = await Promise.all([
     prisma.emailStepRecord.findMany({
       where: {
         scheduledDate: { not: null },
         lead: { status: { notIn: ["BOOKED", "DEAD"] } },
       },
       include: { lead: { select: { id: true, businessName: true } } },
-    }),
-    prisma.engagementDay.findMany({
-      where: { completedAt: null, date: { lte: today } },
-      include: { profile: { select: { businessName: true, platform: true } } },
     }),
     prisma.task.findMany({
       where: { completedAt: null, dueDate: { lte: today } },
@@ -48,24 +43,17 @@ export async function getActionItems(): Promise<ActionItems> {
       date,
     }));
 
-  const dueEngagement = engagementCandidates.map((d) => ({
-    businessName: d.profile.businessName,
-    platform: d.profile.platform,
-    dayNumber: d.dayNumber,
-    date: d.date,
-  }));
-
   const dueTasks = taskCandidates.map((t) => ({
     title: t.title,
     businessName: t.lead?.businessName ?? null,
     date: t.dueDate!,
   }));
 
-  return { dueEmails, dueEngagement, dueTasks };
+  return { dueEmails, dueTasks };
 }
 
 export function formatActionItemsForSlack(items: ActionItems): string | null {
-  if (items.dueEmails.length === 0 && items.dueEngagement.length === 0 && items.dueTasks.length === 0) {
+  if (items.dueEmails.length === 0 && items.dueTasks.length === 0) {
     return null;
   }
 
@@ -75,13 +63,6 @@ export function formatActionItemsForSlack(items: ActionItems): string | null {
     lines.push("", `*Emails to send (${items.dueEmails.length}):*`);
     for (const e of items.dueEmails) {
       lines.push(`• ${e.businessName} — ${e.label} (${e.date})`);
-    }
-  }
-
-  if (items.dueEngagement.length > 0) {
-    lines.push("", `*Engagement check-ins (${items.dueEngagement.length}):*`);
-    for (const e of items.dueEngagement) {
-      lines.push(`• ${e.businessName} — ${e.platform} Day ${e.dayNumber} (${e.date})`);
     }
   }
 

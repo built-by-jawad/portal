@@ -7,11 +7,12 @@ import { redirect } from "next/navigation";
 import { del } from "@vercel/blob";
 import { guessTimezoneFromAddress } from "@/lib/timezone";
 import { addMailbox, removeMailbox, setMailboxActive, pickLeastLoadedMailbox } from "@/lib/mailboxes";
-import { ENGAGEMENT_DAYS, ENGAGEMENT_DAY_ACTIONS, SOCIAL_PLATFORMS, type SocialPlatform } from "@/lib/constants";
+import { SOCIAL_PLATFORMS, type SocialPlatform } from "@/lib/constants";
 import { DEFAULT_PROSPECT_CHECKLIST } from "@/lib/prospectChecklist";
 import { todayInTimeZone, addDays } from "@/lib/scheduling";
 import { EMAIL_SEQUENCE_DAYS } from "@/lib/outreach";
 import { sendEmailStepById } from "@/lib/sendEmailStep";
+import { getCurrentProfile } from "@/lib/auth";
 
 const PAKISTAN_TZ = "Asia/Karachi";
 
@@ -378,152 +379,10 @@ export async function removeMailboxAction(id: string) {
   revalidatePath("/settings");
 }
 
-export async function toggleEngagementDay(dayId: string) {
-  const day = await prisma.engagementDay.findUniqueOrThrow({ where: { id: dayId } });
-  await prisma.engagementDay.update({
-    where: { id: dayId },
-    data: { completedAt: day.completedAt ? null : new Date() },
-  });
-  revalidatePath("/engagement");
-}
-
-// Renames a single day's checklist item (e.g. "Follow" -> something else) for just this profile —
-// the standard ENGAGEMENT_DAY_ACTIONS wording is only the seed default, not a fixed template.
-export async function updateEngagementDayAction(dayId: string, action: string) {
-  await prisma.engagementDay.update({ where: { id: dayId }, data: { action: action.trim() || null } });
-  revalidatePath("/engagement");
-}
-
-// Drops one day from a profile's checklist entirely (e.g. "I don't need a Day 3 comment for this
-// one") — the other days are untouched.
-export async function deleteEngagementDay(dayId: string) {
-  await prisma.engagementDay.delete({ where: { id: dayId } });
-  revalidatePath("/engagement");
-}
-
-async function seedEngagementDays(profileId: string) {
-  const today = todayInTimeZone(PAKISTAN_TZ);
-  await prisma.engagementDay.createMany({
-    data: Array.from({ length: ENGAGEMENT_DAYS }, (_, i) => ({
-      profileId,
-      dayNumber: i + 1,
-      date: addDays(today, i),
-      action: ENGAGEMENT_DAY_ACTIONS[i + 1] ?? null,
-    })),
-  });
-}
-
-// Manual add: one business name, one or more platforms each with its own profile URL (checkbox
-// `platform_<PLATFORM>` plus text input `url_<PLATFORM>` per platform in SOCIAL_PLATFORMS).
-export async function addEngagementProfilesManual(formData: FormData) {
-  const businessName = str(formData, "businessName");
-  if (!businessName) throw new Error("Business name is required");
-  const time = str(formData, "time");
-
-  for (const platform of SOCIAL_PLATFORMS) {
-    if (!checked(formData, `platform_${platform}`)) continue;
-    const profileUrl = str(formData, `url_${platform}`);
-    if (!profileUrl) continue;
-
-    const profile = await prisma.engagementProfile.create({
-      data: { businessName, platform, profileUrl, time },
-    });
-    await seedEngagementDays(profile.id);
-  }
-
-  revalidatePath("/engagement");
-  redirect("/engagement");
-}
-
-// Imports a lead's active outreach channels (INSTAGRAM/FACEBOOK/LINKEDIN with a saved profile URL)
-// as engagement profiles, skipping any channel already imported for this lead.
-export async function importEngagementFromLead(leadId: string) {
-  const lead = await prisma.lead.findUniqueOrThrow({ where: { id: leadId } });
-  const existing = await prisma.engagementProfile.findMany({
-    where: { leadId },
-    select: { platform: true },
-  });
-  const already = new Set(existing.map((p) => p.platform));
-
-  const urlByPlatform: Partial<Record<SocialPlatform, string | null>> = {
-    INSTAGRAM: lead.instagram,
-    FACEBOOK: lead.facebook,
-    LINKEDIN: lead.linkedin,
-  };
-
-  let imported = 0;
-  for (const platform of lead.channels) {
-    if (already.has(platform)) continue;
-    const profileUrl = urlByPlatform[platform as SocialPlatform];
-    if (!profileUrl) continue;
-
-    const profile = await prisma.engagementProfile.create({
-      data: { businessName: lead.businessName, leadId, platform, profileUrl },
-    });
-    await seedEngagementDays(profile.id);
-    imported++;
-  }
-
-  revalidatePath("/engagement");
-  return { imported };
-}
-
-// groupKey identifies "one business" across its platform rows: `lead:<leadId>` for imported
-// profiles, `name:<businessName>` for manually-added ones with no linked lead.
-function groupWhere(groupKey: string) {
-  if (groupKey.startsWith("lead:")) return { leadId: groupKey.slice(5) };
-  return { leadId: null, businessName: decodeURIComponent(groupKey.slice(5)) };
-}
-
-// Edits one business's platform set: updates URLs/renames on kept platforms, creates + seeds
-// newly-checked platforms, deletes unchecked ones (cascades their EngagementDay rows).
-export async function updateEngagementBusiness(formData: FormData) {
-  const groupKey = str(formData, "groupKey");
-  if (!groupKey) throw new Error("Missing groupKey");
-  const businessName = str(formData, "businessName");
-  if (!businessName) throw new Error("Business name is required");
-  const time = str(formData, "time");
-  const leadId = groupKey.startsWith("lead:") ? groupKey.slice(5) : null;
-
-  const existing = await prisma.engagementProfile.findMany({ where: groupWhere(groupKey) });
-  const existingByPlatform = new Map(existing.map((p) => [p.platform, p]));
-
-  for (const platform of SOCIAL_PLATFORMS) {
-    const current = existingByPlatform.get(platform);
-    const isChecked = checked(formData, `platform_${platform}`);
-    const profileUrl = str(formData, `url_${platform}`);
-
-    if (isChecked && profileUrl) {
-      if (current) {
-        await prisma.engagementProfile.update({
-          where: { id: current.id },
-          data: { businessName, profileUrl, time },
-        });
-      } else {
-        const profile = await prisma.engagementProfile.create({
-          data: { businessName, leadId, platform, profileUrl, time },
-        });
-        await seedEngagementDays(profile.id);
-      }
-    } else if (current) {
-      await prisma.engagementProfile.delete({ where: { id: current.id } });
-    }
-  }
-
-  revalidatePath("/engagement");
-  redirect("/engagement");
-}
-
-export async function deleteEngagementBusinesses(groupKeys: string[]) {
-  for (const groupKey of groupKeys) {
-    await prisma.engagementProfile.deleteMany({ where: groupWhere(groupKey) });
-  }
-  revalidatePath("/engagement");
-}
-
 export async function createTask(formData: FormData) {
   const title = str(formData, "title");
   if (!title) throw new Error("Title is required");
+  const profile = await getCurrentProfile();
 
   await prisma.task.create({
     data: {
@@ -531,6 +390,8 @@ export async function createTask(formData: FormData) {
       description: str(formData, "description"),
       leadId: str(formData, "leadId"),
       dueDate: str(formData, "dueDate"),
+      createdById: profile?.id ?? null,
+      visibleToAll: checked(formData, "visibleToAll"),
     },
   });
 
@@ -547,6 +408,7 @@ export async function updateTask(id: string, formData: FormData) {
       source: str(formData, "source"),
       leadId: str(formData, "leadId"),
       dueDate: str(formData, "dueDate"),
+      ...(formData.has("visibilitySubmitted") ? { visibleToAll: checked(formData, "visibleToAll") } : {}),
     },
   });
   revalidatePath("/tasks");

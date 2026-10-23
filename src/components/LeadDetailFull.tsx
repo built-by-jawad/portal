@@ -8,7 +8,6 @@ import DeleteLeadButton from "@/components/DeleteLeadButton";
 import LeadFiles from "@/components/LeadFiles";
 
 const LINK_OUT_SECTIONS = [
-  { href: "/engagement", label: "Engagement" },
   { href: "/tasks", label: "Tasks" },
   { href: "/client-updates", label: "Client updates" },
   { href: "/questions", label: "Questions" },

@@ -1,12 +1,19 @@
 import PageHeader from "@/components/PageHeader";
 import BulkEditTable from "@/components/BulkEditTable";
 import { prisma } from "@/lib/prisma";
+import { getCurrentProfile } from "@/lib/auth";
+import type { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
 export default async function BulkEditTasksPage() {
+  const profile = await getCurrentProfile();
+  const visibilityFilter: Prisma.TaskWhereInput =
+    profile && !profile.isAdmin ? { OR: [{ visibleToAll: true }, { createdById: profile.id }] } : {};
+
   const [tasks, leads] = await Promise.all([
     prisma.task.findMany({
+      where: visibilityFilter,
       orderBy: [{ completedAt: "asc" }, { dueDate: "asc" }, { createdAt: "asc" }],
     }),
     prisma.lead.findMany({ select: { id: true, businessName: true }, orderBy: { businessName: "asc" } }),

@@ -47,19 +47,6 @@ export const SOCIAL_PLATFORM_LABELS: Record<SocialPlatform, string> = {
   LINKEDIN: "LinkedIn",
 };
 
-export const ENGAGEMENT_DAYS = 7;
-
-// Fixed 7-day warm-up action per day number, same sequence for every platform.
-export const ENGAGEMENT_DAY_ACTIONS: Record<number, string> = {
-  1: "Follow",
-  2: "Like their 2 posts",
-  3: "Comment",
-  4: "Like 2 more posts",
-  5: "Comment again",
-  6: "Like 2 more posts",
-  7: "Comment again",
-};
-
 export function emailStepLabel(order: number): string {
   return order === 0 ? "Initial Email" : `Follow-up ${order}`;
 }
