@@ -230,6 +230,16 @@ export async function updateLeadTimezone(leadId: string, timezone: string) {
   revalidatePath("/clients/[id]", "page");
 }
 
+export async function updateLeadLoomVideo(leadId: string, wantsLoomVideo: boolean, loomVideoScript: string) {
+  await prisma.lead.update({
+    where: { id: leadId },
+    data: { wantsLoomVideo, loomVideoScript: loomVideoScript || null },
+  });
+
+  revalidatePath(`/leads/${leadId}`);
+  revalidatePath("/clients/[id]", "page");
+}
+
 // Assigns a mailbox (least-loaded active one) and lays out the 5-step day 1/4/7/10/13 cadence from
 // today, then flips the lead into SEQUENCE_STARTED so n8n's due-email polling starts picking it up.
 export async function startLeadSequence(leadId: string) {

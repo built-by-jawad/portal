@@ -9,6 +9,7 @@ import LeadMailboxSelect from "@/components/LeadMailboxSelect";
 import LeadTimezoneSelect from "@/components/LeadTimezoneSelect";
 import LeadBusinessSummary from "@/components/LeadBusinessSummary";
 import StartSequenceButton from "@/components/StartSequenceButton";
+import LeadLoomVideo from "@/components/LeadLoomVideo";
 import { listMailboxes } from "@/lib/mailboxes";
 
 export function loadLeadShared() {
@@ -77,6 +78,12 @@ export default async function LeadDetail({
           email={lead.email}
         />
       </div>
+
+      <LeadLoomVideo
+        leadId={lead.id}
+        wantsLoomVideo={lead.wantsLoomVideo}
+        loomVideoScript={lead.loomVideoScript}
+      />
 
       <LeadWorkspace
         lead={lead}

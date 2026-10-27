@@ -54,6 +54,11 @@ model Lead {
   mailbox           Mailbox?  @relation(fields: [mailboxId], references: [id], onDelete: SetNull)
   // Set when "Start sequence" is run — the anchor date the day 1/4/7/10/13 cadence is computed from.
   sequenceStartedAt DateTime?
+  // "Do you want to send a Loom video?" toggle on the lead detail page — when on, loomVideoScript
+  // (written by hand per lead, not pulled from the shared Scripts list) is shown; when off, it
+  // stays hidden but is kept in the database in case the toggle is flipped back on later.
+  wantsLoomVideo    Boolean   @default(false)
+  loomVideoScript   String?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
