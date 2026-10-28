@@ -10,6 +10,7 @@ import LeadTimezoneSelect from "@/components/LeadTimezoneSelect";
 import LeadBusinessSummary from "@/components/LeadBusinessSummary";
 import StartSequenceButton from "@/components/StartSequenceButton";
 import LeadLoomVideo from "@/components/LeadLoomVideo";
+import LeadCopyDetails from "@/components/LeadCopyDetails";
 import { listMailboxes } from "@/lib/mailboxes";
 
 export function loadLeadShared() {
@@ -47,9 +48,12 @@ export default async function LeadDetail({
         >
           {lead.status === "BOOKED" ? "← All clients" : "← All leads"}
         </Link>
-        <Link href={`/leads/${lead.id}/full`} className="text-sm font-semibold text-slate hover:underline">
-          View full details →
-        </Link>
+        <div className="flex items-center gap-4">
+          <LeadCopyDetails lead={lead} />
+          <Link href={`/leads/${lead.id}/full`} className="text-sm font-semibold text-slate hover:underline">
+            View full details →
+          </Link>
+        </div>
       </div>
 
       <PageHeader
