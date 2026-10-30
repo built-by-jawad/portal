@@ -12,9 +12,10 @@ export default async function EditTaskPage({
 }) {
   const { id } = await params;
 
-  const [task, leads] = await Promise.all([
+  const [task, leads, profiles] = await Promise.all([
     prisma.task.findUnique({ where: { id } }),
     prisma.lead.findMany({ select: { id: true, businessName: true }, orderBy: { businessName: "asc" } }),
+    prisma.profile.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
 
   if (!task) notFound();
@@ -83,6 +84,25 @@ export default async function EditTaskPage({
               defaultValue={task.dueTime ?? ""}
               className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
             />
+          </div>
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-ink">Assign to</label>
+          <input type="hidden" name="assigneesSubmitted" value="true" />
+          <div className="flex flex-wrap gap-4">
+            {profiles.map((p) => (
+              <label key={p.id} className="flex items-center gap-2 text-sm text-ink">
+                <input
+                  type="checkbox"
+                  name="assignedToIds"
+                  value={p.id}
+                  defaultChecked={task.assignedToIds.includes(p.id)}
+                  className="h-4 w-4 rounded border-mist/40 accent-green"
+                />
+                {p.name}
+              </label>
+            ))}
           </div>
         </div>
 

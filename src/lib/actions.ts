@@ -34,8 +34,19 @@ function secondaryEmails(formData: FormData): string[] {
     .filter(Boolean);
 }
 
+function secondaryInstagrams(formData: FormData): string[] {
+  return formData
+    .getAll("secondaryInstagrams")
+    .map((v) => (typeof v === "string" ? v.trim() : ""))
+    .filter(Boolean);
+}
+
 function channelList(formData: FormData): string[] {
   return formData.getAll("channels").filter((v): v is string => typeof v === "string");
+}
+
+function assignedToIds(formData: FormData): string[] {
+  return formData.getAll("assignedToIds").filter((v): v is string => typeof v === "string");
 }
 
 
@@ -103,6 +114,7 @@ export async function createLead(formData: FormData) {
       city: str(formData, "city"),
       state: str(formData, "state"),
       instagram: str(formData, "instagram"),
+      secondaryInstagrams: secondaryInstagrams(formData),
       facebook: str(formData, "facebook"),
       linkedin: str(formData, "linkedin"),
       emails: {
@@ -143,6 +155,7 @@ export async function updateLead(id: string, formData: FormData) {
       city: str(formData, "city"),
       state: str(formData, "state"),
       instagram: str(formData, "instagram"),
+      secondaryInstagrams: secondaryInstagrams(formData),
       facebook: str(formData, "facebook"),
       linkedin: str(formData, "linkedin"),
     },
@@ -403,6 +416,7 @@ export async function createTask(formData: FormData) {
       dueTime: str(formData, "dueTime"),
       createdById: profile?.id ?? null,
       visibleToAll: checked(formData, "visibleToAll"),
+      assignedToIds: assignedToIds(formData),
     },
   });
 
@@ -411,11 +425,6 @@ export async function createTask(formData: FormData) {
 }
 
 export async function updateTask(id: string, formData: FormData) {
-  const dueDate = str(formData, "dueDate");
-  const dueTime = str(formData, "dueTime");
-  const existing = await prisma.task.findUnique({ where: { id }, select: { dueDate: true, dueTime: true } });
-  const dueChanged = existing && (existing.dueDate !== dueDate || existing.dueTime !== dueTime);
-
   await prisma.task.update({
     where: { id },
     data: {
@@ -423,10 +432,10 @@ export async function updateTask(id: string, formData: FormData) {
       description: str(formData, "description"),
       source: str(formData, "source"),
       leadId: str(formData, "leadId"),
-      dueDate,
-      dueTime,
-      ...(dueChanged ? { reminderSentAt: null } : {}),
+      dueDate: str(formData, "dueDate"),
+      dueTime: str(formData, "dueTime"),
       ...(formData.has("visibilitySubmitted") ? { visibleToAll: checked(formData, "visibleToAll") } : {}),
+      ...(formData.has("assigneesSubmitted") ? { assignedToIds: assignedToIds(formData) } : {}),
     },
   });
   revalidatePath("/tasks");

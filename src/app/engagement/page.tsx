@@ -9,7 +9,7 @@ export default async function EngagementPage() {
   const [leads, profile] = await Promise.all([
     prisma.lead.findMany({
       where: { isEngaged: true },
-      select: { id: true, businessName: true, instagram: true },
+      select: { id: true, businessName: true, instagram: true, secondaryInstagrams: true },
       orderBy: { businessName: "asc" },
     }),
     getCurrentProfile(),

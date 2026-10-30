@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { TRADES, TRADE_LABELS } from "@/lib/constants";
 import type { Lead } from "@prisma/client";
 import SecondaryEmailsField from "@/components/SecondaryEmailsField";
+import SecondaryInstagramsField from "@/components/SecondaryInstagramsField";
 import { CHANNELS, CHANNEL_LABELS } from "@/lib/outreach";
 import { parseCityState } from "@/lib/address";
 import { guessTimezoneFromAddress } from "@/lib/timezone";
@@ -120,6 +121,7 @@ export default function LeadFieldsSection({ lead, isClient }: { lead?: Lead; isC
             <TimezoneClock timezone={timezone} />
           </div>
           <Field label="Instagram" name="instagram" defaultValue={lead?.instagram ?? undefined} placeholder="Profile link or handle" />
+          <SecondaryInstagramsField initial={lead?.secondaryInstagrams ?? []} />
           <Field label="Facebook" name="facebook" defaultValue={lead?.facebook ?? undefined} placeholder="Page link" />
           <Field label="LinkedIn" name="linkedin" defaultValue={lead?.linkedin ?? undefined} placeholder="Profile link" />
           {!isClient && (

@@ -46,7 +46,9 @@ export default async function TasksPage({
   // Admins see every task; everyone else only sees tasks marked visible to all profiles, plus
   // whatever they personally added (even if they kept it private to themselves).
   const visibilityFilter: Prisma.TaskWhereInput =
-    profile && !profile.isAdmin ? { OR: [{ visibleToAll: true }, { createdById: profile.id }] } : {};
+    profile && !profile.isAdmin
+      ? { OR: [{ visibleToAll: true }, { createdById: profile.id }, { assignedToIds: { has: profile.id } }] }
+      : {};
 
   const doneTasksPromise =
     view === "done"

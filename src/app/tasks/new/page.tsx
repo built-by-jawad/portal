@@ -5,10 +5,13 @@ import { createTask } from "@/lib/actions";
 export const dynamic = "force-dynamic";
 
 export default async function NewTaskPage() {
-  const leads = await prisma.lead.findMany({
-    select: { id: true, businessName: true },
-    orderBy: { businessName: "asc" },
-  });
+  const [leads, profiles] = await Promise.all([
+    prisma.lead.findMany({
+      select: { id: true, businessName: true },
+      orderBy: { businessName: "asc" },
+    }),
+    prisma.profile.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
+  ]);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6 md:py-10">
@@ -68,6 +71,18 @@ export default async function NewTaskPage() {
               name="dueTime"
               className="w-full rounded-lg border border-mist/40 bg-white px-3 py-2.5 text-sm text-ink focus:border-green focus:outline-none focus:ring-1 focus:ring-green"
             />
+          </div>
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-ink">Assign to</label>
+          <div className="flex flex-wrap gap-4">
+            {profiles.map((p) => (
+              <label key={p.id} className="flex items-center gap-2 text-sm text-ink">
+                <input type="checkbox" name="assignedToIds" value={p.id} className="h-4 w-4 rounded border-mist/40 accent-green" />
+                {p.name}
+              </label>
+            ))}
           </div>
         </div>
 

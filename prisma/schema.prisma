@@ -34,6 +34,7 @@ model Lead {
   city              String?
   state             String?
   instagram         String?
+  secondaryInstagrams String[] @default([])
   facebook          String?
   linkedin          String?
   channels          String[]  @default([])
@@ -248,11 +249,13 @@ model Task {
   createdBy   Profile? @relation(fields: [createdById], references: [id], onDelete: SetNull)
   visibleToAll Boolean @default(true)
 
-  // Optional time of day (HH:mm, Asia/Karachi — the team's own timezone, not per-lead) for the
-  // "due in ~10 minutes" WhatsApp reminder. reminderSentAt guards against sending that reminder
-  // twice across cron runs; null means not sent yet.
-  dueTime        String?
-  reminderSentAt DateTime?
+  // Profile ids this task is specifically assigned to, in addition to visibleToAll/createdBy.
+  // The n8n WhatsApp reminder workflow reads this (and dueDate/dueTime) directly from Postgres.
+  assignedToIds String[] @default([])
+
+  // Optional time of day (HH:mm, Asia/Karachi — the team's own timezone, not per-lead), shown on
+  // the task and used by the n8n reminder workflow.
+  dueTime String?
 }
 
 model TaskMedia {

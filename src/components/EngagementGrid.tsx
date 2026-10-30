@@ -4,6 +4,7 @@ type EngagementLead = {
   id: string;
   businessName: string;
   instagram: string | null;
+  secondaryInstagrams: string[];
 };
 
 export default function EngagementGrid({
@@ -32,18 +33,27 @@ export default function EngagementGrid({
           <p className="mb-2 truncate font-semibold text-ink">{lead.businessName}</p>
         );
 
+        const allInstagrams = [lead.instagram, ...lead.secondaryInstagrams].filter(
+          (v): v is string => Boolean(v)
+        );
+
         return (
           <div key={lead.id} className="rounded-xl border border-mist/30 bg-white/60 p-4 shadow-sm">
             {name}
-            {lead.instagram ? (
-              <a
-                href={lead.instagram}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm font-semibold text-green hover:underline"
-              >
-                Instagram →
-              </a>
+            {allInstagrams.length > 0 ? (
+              <div className="flex flex-col gap-1">
+                {allInstagrams.map((link, i) => (
+                  <a
+                    key={i}
+                    href={link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm font-semibold text-green hover:underline"
+                  >
+                    Instagram {allInstagrams.length > 1 ? i + 1 : ""} →
+                  </a>
+                ))}
+              </div>
             ) : (
               <span className="text-sm text-slate">No Instagram link</span>
             )}

@@ -26,7 +26,7 @@ export default async function DashboardPage() {
     }),
     prisma.lead.findMany({
       where: { isEngaged: true },
-      select: { id: true, businessName: true, instagram: true },
+      select: { id: true, businessName: true, instagram: true, secondaryInstagrams: true },
       orderBy: { businessName: "asc" },
     }),
     getCurrentProfile(),

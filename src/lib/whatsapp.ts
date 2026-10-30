@@ -15,31 +15,6 @@ export async function sendWhatsApp(phone: string, text: string) {
   });
 }
 
-type NotifiableProfile = { phone: string; whatsappEnabled: boolean };
-
-// The phones to notify for a task: everyone opted in to WhatsApp if it's visible to all profiles,
-// otherwise only its creator (if they're opted in and have a phone on file).
-export async function recipientsForTask(task: { visibleToAll: boolean; createdById: string | null }) {
-  if (task.visibleToAll) {
-    const profiles = await prisma.profile.findMany({
-      where: { whatsappEnabled: true, phone: { not: null } },
-      select: { phone: true },
-    });
-    return profiles.map((p) => p.phone!).filter(Boolean);
-  }
-
-  if (!task.createdById) return [];
-  const creator = await prisma.profile.findUnique({
-    where: { id: task.createdById },
-    select: { phone: true, whatsappEnabled: true },
-  });
-  return creator && isNotifiable(creator) ? [creator.phone!] : [];
-}
-
-function isNotifiable(p: { phone: string | null; whatsappEnabled: boolean }): p is NotifiableProfile {
-  return !!p.phone && p.whatsappEnabled;
-}
-
 export async function allWhatsappEnabledPhones(): Promise<string[]> {
   const profiles = await prisma.profile.findMany({
     where: { whatsappEnabled: true, phone: { not: null } },
