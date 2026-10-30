@@ -11,6 +11,7 @@ import LeadBusinessSummary from "@/components/LeadBusinessSummary";
 import StartSequenceButton from "@/components/StartSequenceButton";
 import LeadLoomVideo from "@/components/LeadLoomVideo";
 import LeadCopyDetails from "@/components/LeadCopyDetails";
+import LeadEngagementToggle from "@/components/LeadEngagementToggle";
 import { listMailboxes } from "@/lib/mailboxes";
 
 export function loadLeadShared() {
@@ -62,6 +63,7 @@ export default async function LeadDetail({
         action={
           <div className="flex flex-wrap items-center gap-2">
             <OutreachStatusSelect leadId={lead.id} status={lead.outreachStatus} stopReason={lead.stopReason} />
+            <LeadEngagementToggle leadId={lead.id} isEngaged={lead.isEngaged} />
             <DeleteLeadButton leadId={lead.id} />
           </div>
         }
