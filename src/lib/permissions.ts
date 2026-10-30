@@ -7,6 +7,7 @@ export const PAGE_KEYS = [
   { key: "mail", href: "/mail", label: "Mail" },
   { key: "leads", href: "/leads", label: "Leads" },
   { key: "tasks", href: "/tasks", label: "Tasks" },
+  { key: "engagement", href: "/engagement", label: "Engagement" },
   { key: "prospects", href: "/prospects", label: "Prospects" },
   { key: "clients", href: "/clients", label: "Clients" },
   { key: "questions", href: "/questions", label: "Questions" },

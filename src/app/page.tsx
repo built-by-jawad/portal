@@ -1,5 +1,6 @@
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
+import EngagementGrid from "@/components/EngagementGrid";
 import { prisma } from "@/lib/prisma";
 import { emailStepLabel } from "@/lib/constants";
 import { todayInTimeZone } from "@/lib/scheduling";
@@ -11,16 +12,23 @@ const PAKISTAN_TZ = "Asia/Karachi";
 export default async function DashboardPage() {
   const today = todayInTimeZone(PAKISTAN_TZ);
 
-  const steps = await prisma.emailStepRecord.findMany({
-    where: {
-      status: { in: ["PENDING", "QUEUED"] },
-      scheduledDate: { not: null, lte: today },
-      lead: { status: { notIn: ["BOOKED", "DEAD"] } },
-    },
-    relationLoadStrategy: "join",
-    include: { lead: { select: { id: true, businessName: true, email: true } } },
-    orderBy: [{ scheduledDate: "asc" }, { scheduledTime: "asc" }],
-  });
+  const [steps, engagedLeads] = await Promise.all([
+    prisma.emailStepRecord.findMany({
+      where: {
+        status: { in: ["PENDING", "QUEUED"] },
+        scheduledDate: { not: null, lte: today },
+        lead: { status: { notIn: ["BOOKED", "DEAD"] } },
+      },
+      relationLoadStrategy: "join",
+      include: { lead: { select: { id: true, businessName: true, email: true } } },
+      orderBy: [{ scheduledDate: "asc" }, { scheduledTime: "asc" }],
+    }),
+    prisma.lead.findMany({
+      where: { isEngaged: true },
+      select: { id: true, businessName: true, instagram: true },
+      orderBy: { businessName: "asc" },
+    }),
+  ]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 md:py-10">
@@ -66,6 +74,11 @@ export default async function DashboardPage() {
           </ul>
         </div>
       )}
+
+      <div className="mt-10">
+        <PageHeader title="Engagement — today" description="Leads to engage with today." />
+        <EngagementGrid leads={engagedLeads} />
+      </div>
     </div>
   );
 }

@@ -971,6 +971,14 @@ export async function bulkDeleteLeads(ids: string[]) {
   revalidatePath("/clients");
 }
 
+export async function bulkSetEngagement(ids: string[], isEngaged: boolean) {
+  if (ids.length === 0) return;
+  await prisma.lead.updateMany({ where: { id: { in: ids } }, data: { isEngaged } });
+  revalidatePath("/leads");
+  revalidatePath("/engagement");
+  revalidatePath("/");
+}
+
 export async function deleteLeadNoRedirect(id: string) {
   await prisma.lead.delete({ where: { id } });
   revalidatePath("/leads");

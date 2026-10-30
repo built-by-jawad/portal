@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { href: "/outreach", label: "Outreach", icon: "☰" },
   { href: "/mail", label: "Mail", icon: "✉" },
   { href: "/tasks", label: "Tasks", icon: "◫" },
+  { href: "/engagement", label: "Engagement", icon: "♥" },
   { href: "/prospects", label: "Prospects", icon: "▦" },
   { href: "/clients", label: "Clients", icon: "◆" },
   { href: "/questions", label: "Questions", icon: "?" },

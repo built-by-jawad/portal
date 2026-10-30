@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { OUTREACH_STATUSES, OUTREACH_STATUS_LABELS, type OutreachStatus } from "@/lib/outreach";
 import { TRADE_LABELS, type Trade } from "@/lib/constants";
-import { bulkDeleteLeads, bulkUpdateLeadStatus } from "@/lib/actions";
+import { bulkDeleteLeads, bulkSetEngagement, bulkUpdateLeadStatus } from "@/lib/actions";
 
 type LeadRow = {
   id: string;
@@ -14,6 +14,7 @@ type LeadRow = {
   contactName: string | null;
   status: string;
   outreachStatus: string;
+  isEngaged: boolean;
 };
 
 export default function LeadsList({ leads }: { leads: LeadRow[] }) {
@@ -71,6 +72,32 @@ export default function LeadsList({ leads }: { leads: LeadRow[] }) {
               type="button"
               disabled={isPending}
               onClick={() => {
+                startTransition(async () => {
+                  await bulkSetEngagement(picked, true);
+                  setSelected(new Set());
+                });
+              }}
+              className="rounded-lg border border-mist/40 px-3 py-1.5 text-xs font-semibold text-ink transition hover:bg-mist/10 disabled:opacity-50"
+            >
+              Add to Engagement
+            </button>
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={() => {
+                startTransition(async () => {
+                  await bulkSetEngagement(picked, false);
+                  setSelected(new Set());
+                });
+              }}
+              className="rounded-lg border border-mist/40 px-3 py-1.5 text-xs font-semibold text-slate transition hover:bg-mist/10 disabled:opacity-50"
+            >
+              Remove from Engagement
+            </button>
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={() => {
                 if (!confirm(`Delete ${picked.length} lead${picked.length === 1 ? "" : "s"} and all their emails? This can't be undone.`)) return;
                 startTransition(async () => {
                   await bulkDeleteLeads(picked);
@@ -101,6 +128,9 @@ export default function LeadsList({ leads }: { leads: LeadRow[] }) {
                 {lead.contactName ? ` · ${lead.contactName}` : ""}
               </p>
             </Link>
+            {lead.isEngaged && (
+              <span className="rounded-full bg-pink-100 px-2.5 py-1 text-xs font-semibold text-pink-700">Engaged</span>
+            )}
             <span className="rounded-full bg-mist/20 px-2.5 py-1 text-xs font-semibold text-ink">{OUTREACH_STATUS_LABELS[lead.outreachStatus as OutreachStatus] ?? lead.outreachStatus}</span>
           </li>
         ))}

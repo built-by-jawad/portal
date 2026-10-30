@@ -59,6 +59,9 @@ model Lead {
   // stays hidden but is kept in the database in case the toggle is flipped back on later.
   wantsLoomVideo    Boolean   @default(false)
   loomVideoScript   String?
+  // Selected from the leads page to show up as a card on /engagement and on the dashboard's
+  // "Engagement today" section — a standing list, not tied to a specific date, until unselected.
+  isEngaged         Boolean   @default(false)
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
