@@ -16,7 +16,11 @@ export default async function BulkEditTasksPage() {
       where: visibilityFilter,
       orderBy: [{ completedAt: "asc" }, { dueDate: "asc" }, { createdAt: "asc" }],
     }),
-    prisma.lead.findMany({ select: { id: true, businessName: true }, orderBy: { businessName: "asc" } }),
+    prisma.lead.findMany({
+      where: { status: "BOOKED" },
+      select: { id: true, businessName: true },
+      orderBy: { businessName: "asc" },
+    }),
   ]);
 
   return (

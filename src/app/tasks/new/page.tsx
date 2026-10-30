@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
 export default async function NewTaskPage() {
   const [leads, profiles] = await Promise.all([
     prisma.lead.findMany({
+      where: { status: "BOOKED" },
       select: { id: true, businessName: true },
       orderBy: { businessName: "asc" },
     }),

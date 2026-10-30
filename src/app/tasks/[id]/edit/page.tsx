@@ -14,7 +14,11 @@ export default async function EditTaskPage({
 
   const [task, leads, profiles] = await Promise.all([
     prisma.task.findUnique({ where: { id } }),
-    prisma.lead.findMany({ select: { id: true, businessName: true }, orderBy: { businessName: "asc" } }),
+    prisma.lead.findMany({
+      where: { status: "BOOKED" },
+      select: { id: true, businessName: true },
+      orderBy: { businessName: "asc" },
+    }),
     prisma.profile.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
 

@@ -11,7 +11,11 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         media: { orderBy: { createdAt: "asc" } },
       },
     }),
-    prisma.lead.findMany({ select: { id: true, businessName: true }, orderBy: { businessName: "asc" } }),
+    prisma.lead.findMany({
+      where: { status: "BOOKED" },
+      select: { id: true, businessName: true },
+      orderBy: { businessName: "asc" },
+    }),
     prisma.profile.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
   if (!task) return NextResponse.json({ error: "Not found" }, { status: 404 });
