@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { updateTask, toggleTaskDone, deleteTask } from "@/lib/actions";
+import { updateTask, toggleTaskDone, deleteTask, notifyTaskWhatsAppNow } from "@/lib/actions";
 import { useToast } from "@/components/ToastProvider";
 
 type Media = { id: string; filename: string; url: string; contentType: string };
@@ -286,6 +286,14 @@ export default function TaskDetailModal({ taskId, onClose }: { taskId: string; o
                   className="rounded-lg border border-mist/50 px-4 py-2 text-sm font-semibold text-ink disabled:opacity-60"
                 >
                   {data.task.completedAt ? "Reopen" : "Mark done"}
+                </button>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => run(() => notifyTaskWhatsAppNow(taskId), "WhatsApp notification sent")}
+                  className="rounded-lg border border-green/50 px-4 py-2 text-sm font-semibold text-green disabled:opacity-60"
+                >
+                  Send WhatsApp now
                 </button>
                 <button
                   type="button"

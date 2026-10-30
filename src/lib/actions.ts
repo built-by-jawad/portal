@@ -440,6 +440,17 @@ export async function updateTask(id: string, formData: FormData) {
   revalidatePath("/tasks");
 }
 
+// Fires the "send now" branch of the n8n Task Reminders workflow for one task, outside its normal
+// due-time schedule. n8n looks the task up itself via /api/n8n/tasks/[id]/notify and WhatsApps
+// whoever it's assigned to (or its creator) right away.
+export async function notifyTaskWhatsAppNow(id: string) {
+  const url = process.env.N8N_TASK_NOTIFY_WEBHOOK_URL;
+  if (!url) throw new Error("N8N_TASK_NOTIFY_WEBHOOK_URL is not configured");
+
+  const res = await fetch(`${url}?taskId=${encodeURIComponent(id)}`);
+  if (!res.ok) throw new Error("Failed to trigger WhatsApp notification");
+}
+
 export async function toggleTaskDone(id: string) {
   const task = await prisma.task.findUniqueOrThrow({ where: { id } });
   await prisma.task.update({

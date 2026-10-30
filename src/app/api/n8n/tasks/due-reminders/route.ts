@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { checkN8nAuth } from "@/lib/n8n";
+import { phonesForTask } from "@/lib/whatsapp";
 import { todayInTimeZone, minutesOfDayInTimeZone, formatTime12h } from "@/lib/scheduling";
 
 const TEAM_TZ = "Asia/Karachi";
@@ -27,24 +28,7 @@ export async function GET(request: NextRequest) {
   const items: { taskId: string; phone: string; text: string }[] = [];
 
   for (const task of tasks) {
-    let phones: string[];
-
-    if (task.assignedToIds.length > 0) {
-      const profiles = await prisma.profile.findMany({
-        where: { id: { in: task.assignedToIds }, whatsappEnabled: true, phone: { not: null } },
-        select: { phone: true },
-      });
-      phones = profiles.map((p) => p.phone!);
-    } else if (task.createdById) {
-      const creator = await prisma.profile.findUnique({
-        where: { id: task.createdById },
-        select: { phone: true, whatsappEnabled: true },
-      });
-      phones = creator?.whatsappEnabled && creator.phone ? [creator.phone] : [];
-    } else {
-      phones = [];
-    }
-
+    const phones = await phonesForTask(task);
     const text = `⏰ "${task.title}" is due now (${formatTime12h(task.dueTime!)}).`;
     for (const phone of phones) items.push({ taskId: task.id, phone, text });
   }
