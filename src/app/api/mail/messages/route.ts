@@ -6,7 +6,9 @@ const PAGE_SIZE = 50;
 
 // Flat, folder-scoped message list for the /mail page's middle column — newest first, paginated
 // via a date cursor. mailboxId="all" merges this folder across every active mailbox instead of
-// scoping to one. starred=true ignores folder entirely and returns every flagged message in scope.
+// scoping to one. mailboxId="leads" merges across every mailbox too, but additionally restricts to
+// messages to/from a lead's email address — the sidebar's "Leads Only" view. starred=true ignores
+// folder entirely and returns every flagged message in scope.
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const mailboxId = searchParams.get("mailboxId");
@@ -15,10 +17,16 @@ export async function GET(request: NextRequest) {
   const cursor = searchParams.get("cursor");
   if (!mailboxId) return NextResponse.json({ error: "mailboxId is required" }, { status: 400 });
 
-  const where: Prisma.MailMessageWhereInput = mailboxId === "all" ? {} : { mailboxId };
+  const where: Prisma.MailMessageWhereInput = mailboxId === "all" || mailboxId === "leads" ? {} : { mailboxId };
   if (starred) where.flagged = true;
   else where.folder = folder;
   if (cursor) where.date = { lt: new Date(cursor) };
+
+  if (mailboxId === "leads") {
+    const leads = await prisma.lead.findMany({ where: { email: { not: null } }, select: { email: true } });
+    const leadEmails = leads.map((l) => l.email!).filter(Boolean);
+    where.OR = [{ fromAddress: { in: leadEmails } }, { toAddress: { in: leadEmails } }];
+  }
 
   const messages = await prisma.mailMessage.findMany({
     where,

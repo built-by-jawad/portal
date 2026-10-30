@@ -87,6 +87,7 @@ function formatSize(bytes: number) {
 }
 
 const ALL = "all";
+const LEADS_ONLY = "leads";
 const RAIL_KEY = "mail-rail-collapsed";
 const LIST_KEY = "mail-list-collapsed";
 
@@ -333,7 +334,7 @@ export default function MailClient() {
   }
 
   function startCompose() {
-    setComposeFromMailboxId(mailboxId !== ALL ? mailboxId : mailboxes[0]?.id ?? "");
+    setComposeFromMailboxId(mailboxId !== ALL && mailboxId !== LEADS_ONLY ? mailboxId : mailboxes[0]?.id ?? "");
     setComposeTo("");
     setComposeSubject("");
     setComposeText("");
@@ -467,6 +468,19 @@ export default function MailClient() {
             )}
           </button>
 
+          <button
+            onClick={() => selectMailbox(LEADS_ONLY)}
+            title="Leads Only"
+            className={`mb-4 flex items-center gap-2 rounded-lg px-2 py-2 text-left text-sm transition ${
+              railCollapsed ? "justify-center" : ""
+            } ${mailboxId === LEADS_ONLY ? "bg-green/15 text-green font-semibold" : "text-ink hover:bg-mist/10"}`}
+          >
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-mist/30 text-xs font-semibold text-ink">
+              {"◎"}
+            </span>
+            {!railCollapsed && <span className="flex-1 truncate">Leads Only</span>}
+          </button>
+
           <div className="mb-4 flex flex-col gap-0.5">
             {mailboxes.map((m) => (
               <button
@@ -562,7 +576,12 @@ export default function MailClient() {
           ) : (
             <div className="flex items-center justify-between border-b border-mist/10 px-4 py-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate">
-                {mailboxId === ALL ? "All Mailboxes" : currentMailbox?.label || currentMailbox?.email} · {currentFolderMeta?.label}
+                {mailboxId === ALL
+                  ? "All Mailboxes"
+                  : mailboxId === LEADS_ONLY
+                    ? "Leads Only"
+                    : currentMailbox?.label || currentMailbox?.email}{" "}
+                · {currentFolderMeta?.label}
               </p>
               <span className="text-xs text-slate">{filteredMessages.length}</span>
             </div>
@@ -605,7 +624,7 @@ export default function MailClient() {
                       {m.hasAttachments && <span className="ml-1 text-slate">{"📎"}</span>}
                     </span>
                     <span className="flex items-center gap-1.5">
-                      {mailboxId === ALL && (
+                      {(mailboxId === ALL || mailboxId === LEADS_ONLY) && (
                         <span className="shrink-0 rounded-full bg-mist/20 px-1.5 py-0.5 text-[10px] font-medium text-slate">
                           {m.mailboxLabel}
                         </span>
