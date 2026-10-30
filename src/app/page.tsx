@@ -4,6 +4,7 @@ import EngagementGrid from "@/components/EngagementGrid";
 import { prisma } from "@/lib/prisma";
 import { emailStepLabel } from "@/lib/constants";
 import { todayInTimeZone } from "@/lib/scheduling";
+import { getCurrentProfile } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,7 @@ const PAKISTAN_TZ = "Asia/Karachi";
 export default async function DashboardPage() {
   const today = todayInTimeZone(PAKISTAN_TZ);
 
-  const [steps, engagedLeads] = await Promise.all([
+  const [steps, engagedLeads, profile] = await Promise.all([
     prisma.emailStepRecord.findMany({
       where: {
         status: { in: ["PENDING", "QUEUED"] },
@@ -28,6 +29,7 @@ export default async function DashboardPage() {
       select: { id: true, businessName: true, instagram: true },
       orderBy: { businessName: "asc" },
     }),
+    getCurrentProfile(),
   ]);
 
   return (
@@ -77,7 +79,7 @@ export default async function DashboardPage() {
 
       <div className="mt-10">
         <PageHeader title="Engagement — today" description="Leads to engage with today." />
-        <EngagementGrid leads={engagedLeads} />
+        <EngagementGrid leads={engagedLeads} canOpenDetail={profile?.isAdmin ?? false} />
       </div>
     </div>
   );
