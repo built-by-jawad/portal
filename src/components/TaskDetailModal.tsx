@@ -7,6 +7,7 @@ import { useToast } from "@/components/ToastProvider";
 
 type Media = { id: string; filename: string; url: string; contentType: string };
 type Lead = { id: string; businessName: string };
+type Profile = { id: string; name: string };
 type TaskDetail = {
   id: string;
   title: string;
@@ -17,7 +18,7 @@ type TaskDetail = {
   dueTime: string | null;
   completedAt: string | null;
   media: Media[];
-  visibleToAll: boolean;
+  assignedToIds: string[];
 };
 
 const field =
@@ -64,7 +65,7 @@ function MediaThumb({ m, onRemove }: { m: Media; onRemove: () => void }) {
 }
 
 export default function TaskDetailModal({ taskId, onClose }: { taskId: string; onClose: () => void }) {
-  const [data, setData] = useState<{ task: TaskDetail; leads: Lead[] } | null>(null);
+  const [data, setData] = useState<{ task: TaskDetail; leads: Lead[]; profiles: Profile[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [pending, startTransition] = useTransition();
   const notify = useToast();
@@ -77,7 +78,7 @@ export default function TaskDetailModal({ taskId, onClose }: { taskId: string; o
   const [dueDate, setDueDate] = useState("");
   const [dueTime, setDueTime] = useState("");
   const [media, setMedia] = useState<Media[]>([]);
-  const [visibleToAll, setVisibleToAll] = useState(true);
+  const [assignedToIds, setAssignedToIds] = useState<string[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -93,7 +94,7 @@ export default function TaskDetailModal({ taskId, onClose }: { taskId: string; o
         setDueDate(d.task.dueDate ?? "");
         setDueTime(d.task.dueTime ?? "");
         setMedia(d.task.media);
-        setVisibleToAll(d.task.visibleToAll);
+        setAssignedToIds(d.task.assignedToIds);
         setLoading(false);
       });
     return () => {
@@ -140,8 +141,8 @@ export default function TaskDetailModal({ taskId, onClose }: { taskId: string; o
     fd.set("leadId", leadId);
     fd.set("dueDate", dueDate);
     fd.set("dueTime", dueTime);
-    fd.set("visibilitySubmitted", "true");
-    if (visibleToAll) fd.set("visibleToAll", "true");
+    fd.set("assigneesSubmitted", "true");
+    for (const id of assignedToIds) fd.append("assignedToIds", id);
     run(() => updateTask(taskId, fd), "Saved");
   }
 
@@ -216,15 +217,26 @@ export default function TaskDetailModal({ taskId, onClose }: { taskId: string; o
                 <input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} className={field} />
               </div>
 
-              <label className="flex items-center gap-2 text-sm text-ink">
-                <input
-                  type="checkbox"
-                  checked={visibleToAll}
-                  onChange={(e) => setVisibleToAll(e.target.checked)}
-                  className="h-4 w-4 rounded border-mist/40 accent-green"
-                />
-                Visible to other profiles with Tasks access
-              </label>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-ink">Assign to</label>
+                <div className="flex flex-wrap gap-4">
+                  {data.profiles.map((p) => (
+                    <label key={p.id} className="flex items-center gap-2 text-sm text-ink">
+                      <input
+                        type="checkbox"
+                        checked={assignedToIds.includes(p.id)}
+                        onChange={(e) =>
+                          setAssignedToIds((prev) =>
+                            e.target.checked ? [...prev, p.id] : prev.filter((id) => id !== p.id)
+                          )
+                        }
+                        className="h-4 w-4 rounded border-mist/40 accent-green"
+                      />
+                      {p.name}
+                    </label>
+                  ))}
+                </div>
+              </div>
 
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-ink">Images &amp; files</label>

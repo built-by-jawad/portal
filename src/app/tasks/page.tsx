@@ -13,9 +13,19 @@ export const dynamic = "force-dynamic";
 
 const PAKISTAN_TZ = "Asia/Karachi";
 
-function toRow<T extends { id: string; title: string; description: string | null; leadId: string | null; dueDate: string | null; dueTime: string | null; completedAt: Date | null; visibleToAll: boolean; lead?: { businessName: string } | null }>(
-  t: T
-) {
+function toRow<
+  T extends {
+    id: string;
+    title: string;
+    description: string | null;
+    leadId: string | null;
+    dueDate: string | null;
+    dueTime: string | null;
+    completedAt: Date | null;
+    assignedToIds: string[];
+    lead?: { businessName: string } | null;
+  },
+>(t: T, profileNames: Map<string, string>) {
   return {
     id: t.id,
     title: t.title,
@@ -25,7 +35,7 @@ function toRow<T extends { id: string; title: string; description: string | null
     dueDate: t.dueDate,
     dueTime: t.dueTime,
     completedAt: t.completedAt,
-    visibleToAll: t.visibleToAll,
+    assignedToNames: t.assignedToIds.map((id) => profileNames.get(id)).filter((n): n is string => !!n),
   };
 }
 
@@ -42,12 +52,14 @@ export default async function TasksPage({
 
   const pakistanToday = todayInTimeZone(PAKISTAN_TZ);
   const profile = await getCurrentProfile();
+  const allProfiles = await prisma.profile.findMany({ select: { id: true, name: true } });
+  const profileNames = new Map(allProfiles.map((p) => [p.id, p.name]));
 
-  // Admins see every task; everyone else only sees tasks marked visible to all profiles, plus
-  // whatever they personally added (even if they kept it private to themselves).
+  // Admins see every task; everyone else only sees tasks they're specifically assigned to, plus
+  // whatever they personally added.
   const visibilityFilter: Prisma.TaskWhereInput =
     profile && !profile.isAdmin
-      ? { OR: [{ visibleToAll: true }, { createdById: profile.id }, { assignedToIds: { has: profile.id } }] }
+      ? { OR: [{ createdById: profile.id }, { assignedToIds: { has: profile.id } }] }
       : {};
 
   const doneTasksPromise =
@@ -88,7 +100,7 @@ export default async function TasksPage({
             <p className="mb-3 text-xs text-slate">
               Select tasks below to mark, delete, or log them as client updates in bulk — select just one to act on it alone.
             </p>
-            <TaskListSection tasks={doneTasks.map(toRow)} showAddToUpdate />
+            <TaskListSection tasks={doneTasks.map((t) => toRow(t, profileNames))} showAddToUpdate />
           </>
         )}
       </div>
@@ -112,7 +124,7 @@ export default async function TasksPage({
             Nothing overdue. 🎉
           </div>
         ) : (
-          <TaskListSection tasks={overdueTasks.map(toRow)} overdue />
+          <TaskListSection tasks={overdueTasks.map((t) => toRow(t, profileNames))} overdue />
         )}
       </div>
     );
@@ -159,14 +171,14 @@ export default async function TasksPage({
             Nothing due today.
           </div>
         ) : (
-          <TaskListSection tasks={todaysTasks.map(toRow)} />
+          <TaskListSection tasks={todaysTasks.map((t) => toRow(t, profileNames))} />
         )}
       </div>
 
       {noDueDateTasks.length > 0 && (
         <div>
           <h2 className="font-display mb-3 text-sm font-bold text-ink">No due date</h2>
-          <TaskListSection tasks={noDueDateTasks.map(toRow)} />
+          <TaskListSection tasks={noDueDateTasks.map((t) => toRow(t, profileNames))} />
         </div>
       )}
     </div>

@@ -415,7 +415,7 @@ export async function createTask(formData: FormData) {
       dueDate: str(formData, "dueDate"),
       dueTime: str(formData, "dueTime"),
       createdById: profile?.id ?? null,
-      visibleToAll: checked(formData, "visibleToAll"),
+      visibleToAll: false,
       assignedToIds: assignedToIds(formData),
     },
   });
@@ -434,7 +434,6 @@ export async function updateTask(id: string, formData: FormData) {
       leadId: str(formData, "leadId"),
       dueDate: str(formData, "dueDate"),
       dueTime: str(formData, "dueTime"),
-      ...(formData.has("visibilitySubmitted") ? { visibleToAll: checked(formData, "visibleToAll") } : {}),
       ...(formData.has("assigneesSubmitted") ? { assignedToIds: assignedToIds(formData) } : {}),
     },
   });

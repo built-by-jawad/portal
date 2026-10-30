@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [task, leads] = await Promise.all([
+  const [task, leads, profiles] = await Promise.all([
     prisma.task.findUnique({
       where: { id },
       include: {
@@ -12,7 +12,8 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       },
     }),
     prisma.lead.findMany({ select: { id: true, businessName: true }, orderBy: { businessName: "asc" } }),
+    prisma.profile.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
   if (!task) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json({ task, leads });
+  return NextResponse.json({ task, leads, profiles });
 }

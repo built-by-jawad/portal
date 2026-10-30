@@ -16,7 +16,7 @@ type Task = {
   dueDate: string | null;
   dueTime: string | null;
   completedAt: Date | null;
-  visibleToAll: boolean;
+  assignedToNames: string[];
 };
 
 // One card list with checkboxes + a bulk action bar. Acting on a single task just means
@@ -68,7 +68,7 @@ export default function TaskListSection({
           dueDate={t.dueDate}
           dueTime={t.dueTime}
           completedAt={t.completedAt}
-          visibleToAll={t.visibleToAll}
+          assignedToNames={t.assignedToNames}
           overdue={overdue}
           selected={selected.has(t.id)}
           onToggleSelect={() => toggle(t.id)}

@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function BulkEditTasksPage() {
   const profile = await getCurrentProfile();
   const visibilityFilter: Prisma.TaskWhereInput =
-    profile && !profile.isAdmin ? { OR: [{ visibleToAll: true }, { createdById: profile.id }] } : {};
+    profile && !profile.isAdmin ? { OR: [{ createdById: profile.id }, { assignedToIds: { has: profile.id } }] } : {};
 
   const [tasks, leads] = await Promise.all([
     prisma.task.findMany({

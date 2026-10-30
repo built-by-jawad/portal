@@ -106,18 +106,6 @@ export default async function EditTaskPage({
           </div>
         </div>
 
-        <label className="flex items-center gap-2 text-sm text-ink">
-          <input type="hidden" name="visibilitySubmitted" value="true" />
-          <input
-            type="checkbox"
-            name="visibleToAll"
-            value="true"
-            defaultChecked={task.visibleToAll}
-            className="h-4 w-4 rounded border-mist/40 accent-green"
-          />
-          Visible to other profiles with Tasks access (uncheck to keep this just for you)
-        </label>
-
         <button
           type="submit"
           className="inline-flex items-center justify-center rounded-lg bg-green px-5 py-2.5 text-sm font-semibold text-paper transition hover:brightness-95"
