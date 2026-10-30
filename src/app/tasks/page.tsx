@@ -5,7 +5,7 @@ import TaskListSection from "@/components/TaskListSection";
 import TaskCalendar from "@/components/TaskCalendar";
 import { type CalendarGridItem } from "@/components/CalendarGrid";
 import { prisma } from "@/lib/prisma";
-import { todayInTimeZone, isInView, type CalendarView } from "@/lib/scheduling";
+import { todayInTimeZone, addDays, isInView, type CalendarView } from "@/lib/scheduling";
 import { getCurrentProfile } from "@/lib/auth";
 import type { Prisma } from "@prisma/client";
 
@@ -45,12 +45,13 @@ export default async function TasksPage({
   searchParams: Promise<{ view?: string }>;
 }) {
   const { view: rawView } = await searchParams;
-  const view: CalendarView | "done" | "overdue" =
-    rawView === "week" || rawView === "month" || rawView === "done" || rawView === "today"
+  const view: CalendarView | "done" | "overdue" | "tomorrow" =
+    rawView === "week" || rawView === "month" || rawView === "done" || rawView === "today" || rawView === "tomorrow"
       ? rawView
       : "overdue";
 
   const pakistanToday = todayInTimeZone(PAKISTAN_TZ);
+  const pakistanTomorrow = addDays(pakistanToday, 1);
   const profile = await getCurrentProfile();
   const allProfiles = await prisma.profile.findMany({ select: { id: true, name: true } });
   const profileNames = new Map(allProfiles.map((p) => [p.id, p.name]));
@@ -125,6 +126,29 @@ export default async function TasksPage({
           </div>
         ) : (
           <TaskListSection tasks={overdueTasks.map((t) => toRow(t, profileNames))} overdue />
+        )}
+      </div>
+    );
+  }
+
+  if (view === "tomorrow") {
+    const tomorrowTasks = openTasks.filter((t) => t.dueDate === pakistanTomorrow);
+
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 md:py-10">
+        <PageHeader
+          title="Tasks"
+          description={`${tomorrowTasks.length} due tomorrow.`}
+          action={<TaskImportExportBar />}
+        />
+        <TaskViewTabs current={view} overdueCount={overdueCount} />
+
+        {tomorrowTasks.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-mist/50 p-8 text-center text-sm text-slate">
+            Nothing due tomorrow.
+          </div>
+        ) : (
+          <TaskListSection tasks={tomorrowTasks.map((t) => toRow(t, profileNames))} />
         )}
       </div>
     );

@@ -6,6 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 const VIEWS = [
   { value: "overdue", label: "Overdue" },
   { value: "today", label: "Today" },
+  { value: "tomorrow", label: "Tomorrow" },
   { value: "week", label: "Week" },
   { value: "month", label: "Month" },
   { value: "done", label: "Done" },
